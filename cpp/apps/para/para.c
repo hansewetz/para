@@ -2,13 +2,8 @@
 
 /* TODO
 
-  - add and set debug level in para.c
-
   - support automatic resizing of priority queues - needed for output queue since we don't know how large the output queue will be
     right now we have a fixed size output queue - if we go over maximum the program stops with an error
-
-  - support filename for input and filename for output (default is stdin/stdout)
-    (need update in para.{h,c} for this + maybe a C-file for supporting opening of files/connections)
 
   - support input/output as tcp connectios
     (must pass file decsriptors directly to 'paraloop()' instead of havinf para loop open input/outrput files
