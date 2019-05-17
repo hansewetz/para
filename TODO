@@ -1,7 +1,3 @@
-(1) complete test para program for text based processing
-
-(1.5) write proper main program with processing of command line parameters
-
 (2) write test cases for end2end para + update cmake to build and run tests
 
 (3) write man page + update cmake to install man page
@@ -9,5 +5,3 @@
 (4) write README.md file covering installation + description
 
 (5) write blog entry referencing github page
-
-(6) optimize input/output so we don't read/write a single byte at a time (add buffering at input/output)

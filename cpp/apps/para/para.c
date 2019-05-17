@@ -2,6 +2,8 @@
 
 /* TODO
 
+  - make 'maxoutq' a cmd line parameter
+
   - support automatic resizing of priority queues - needed for output queue since we don't know how large the output queue will be
     right now we have a fixed size output queue - if we go over maximum the program stops with an error
 
@@ -9,9 +11,10 @@
     (must pass file decsriptors directly to 'paraloop()' instead of havinf para loop open input/outrput files
 
   - support 'child process' being a tcp service
-    ('paraloop' cannot start childeren then - we pass already open fds to 'paraloop')
+    (paraloop must then receive fd's to child processes - in general a 'process block' containing information about child process)
 
 */
+#include "version.h"
 #include "paraloop.h"
 #include "error.h"
 #include "util.h"
@@ -28,6 +31,7 @@
 // command line parameters
 static int print=0;                                // print cmd line parameters (default false)
 static int verbose=0;                              // verbose level (maximum debug level on)
+static int version=0;                              // print version number and exit (default false)
 static int maxclientIsSet=0;                       // 'maxclients' parameters has been set
 static size_t maxclients=1;                        // #of child processes
 static size_t heartsec=5;                          // heart beat timer sec
@@ -45,9 +49,10 @@ static char*strusage[]={
   "  para [options] -- maxclients cmd cmdargs ...",
   "",
   "options:",
-  "  -h          help",
-  "  -p          print cmd line parameters",
-  "  -v          verbose mode (maximum debug level)",
+  "  -h          help and exit (default: not set)",
+  "  -p          print cmd line parameters (default: not set)",
+  "  -v          verbose mode (maximum debug level, default: not set)",
+  "  -V          print version number (optional, default: not set)",
   "  -b arg      maximum length in bytes of a line (optional, default: 4096)",
   "  -H arg      heartbeat in seconds (optional, default: 5)",
   "  -m arg      #of child processes to spawn (optional if specified as a positional parameter, default: 1)",
@@ -64,6 +69,7 @@ void printcmds(){
   fprintf(stderr,"----------------------------\n");
   fprintf(stderr,"-p: %s\n",bool2str(print));
   fprintf(stderr,"-v: %s\n",bool2str(verbose));
+  fprintf(stderr,"-V: %s\n",bool2str(version));
   fprintf(stderr,"-b: %lu\n",maxbuf);
   fprintf(stderr,"-H: %lu\n",heartsec);
   fprintf(stderr,"-m: %lu\n",maxclients);
@@ -71,6 +77,10 @@ void printcmds(){
   fprintf(stderr,"-i: %s\n",inputfile?inputfile:"<stdin>");
   fprintf(stderr,"-i: %s\n",outputfile?outputfile:"<stdout>");
   fprintf(stderr,"----------------------------\n");
+}
+// print version
+void printversion(){
+  fprintf(stderr,"@version: %d.%d\n",PARA_VERSION_MAJOR,PARA_VERSION_MINOR);
 }
 // usage function - print message to stderr and exit
 // print an application message and continue
@@ -88,7 +98,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvH:b:m:c:i:o:"))!=-1){                                 // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVH:b:m:c:i:o:"))!=-1){                                 // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
@@ -97,6 +107,8 @@ int main(int argc,char**argv){
       break;
     case 'v':
       verbose=1;
+    case 'V':
+      version=1;
       break;
     case 'b':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-b' option, must be a positive number",optarg);
@@ -124,6 +136,7 @@ int main(int argc,char**argv){
       usage("unknown option: %c\n",optopt);
     }
   }
+  if(version)printversion();                                                   // print version of para if requested
   int pospar=0;                                                                // get positional parameters
   int cargc=0;                                                                 // ...
   for(;optind<argc;++optind,++pospar){                                         // ...
@@ -148,7 +161,7 @@ int main(int argc,char**argv){
   if(!cmd)usage("'cmd' (or -c) command line parameters must specify command for child process");
 
   if(verbose)loglevel(DEBUG);                                                  // set debug level
-  if(print)printcmds();                                                        // print cmd line parameters if needed
+  if(print)printcmds();                                                        // print cmd linet parameters if needed
 
   // check if we need to open input/output files
   int fdin=STDIN_FILENO;                                                       // input and output fds

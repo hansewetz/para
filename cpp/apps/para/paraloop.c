@@ -5,8 +5,6 @@
   - maybe remove linenumber in combuf ctor and always set it to -1 if not specified
   - try to read many line simultaneously when reading input
 
-  - run VALGRIND
-
 Notes:
   we handlke fdset flags by:
     - only when the state changes do we clear or set flags

@@ -1,0 +1,4 @@
+// (C) Copyright Hans Ewetz 2018. All rights reserved.
+#pragma once
+static int const PARA_VERSION_MAJOR=@PARA_VERSION_MAJOR@;
+static int const PARA_VERSION_MINOR=@PARA_VERSION_MINOR@;
