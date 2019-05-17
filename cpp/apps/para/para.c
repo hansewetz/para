@@ -107,6 +107,7 @@ int main(int argc,char**argv){
       break;
     case 'v':
       verbose=1;
+      break;
     case 'V':
       version=1;
       break;
