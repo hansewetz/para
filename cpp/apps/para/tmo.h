@@ -16,7 +16,7 @@ struct tmo_t{
   enum tmo_stat stat_;    // is timeout active or deactivated
   size_t sec_;            // timeout in seconds
   size_t key_;            // key which can be used by client code to correlate the timeout with something
-  size_t sec2tmo_;        // seconds untril timeout from now
+  size_t sec2tmo_;        // seconds until timeout from now
 };
 struct tmo_t*tmo_ctor(enum tmo_typ typ,size_t sec,size_t key);      // constructor
 void tmo_dtor(struct tmo_t*tmo);                                    // destructor

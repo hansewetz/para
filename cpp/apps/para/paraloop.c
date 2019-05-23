@@ -31,8 +31,8 @@ Notes:
 static int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool);                         // read lines from input
 static int flushoutq(struct outq_t*qout,struct combufpool*cbpool);                                               // flush output queue
 static void inq2cbtab(struct inq_t*qin,struct combuf*cb,fd_set*wrall_set,struct combufpool*cbpool);              // transfer data from inq to child process write buffer
-static void cbtabread(struct combuf*cb,fd_set*rdall_set,fd_set*fdrd);                                            // read data into sub process buffer
-static void cbtabwrite(struct combuf*cb,fd_set*rdall_set,fd_set*wrall_set,fd_set*wrset,struct combufpool*cbpool);// write data in sub process buffer
+static int cbtabread(struct combuf*cb,fd_set*rdall_set,fd_set*fdrd);                                             // read data into sub process buffer
+static int cbtabwrite(struct combuf*cb,fd_set*rdall_set,fd_set*wrall_set,fd_set*wrset,struct combufpool*cbpool); // write data in sub process buffer
 static void cbtab2outq(struct outq_t*qout,struct combuf*cb,fd_set*wrall_set,struct combufpool*cbpool,FILE*fpout);// copy sub process buffer to output queue
 
 // handle SIGCHLD signal
@@ -50,7 +50,7 @@ void sigchldHandler(int signo){
 }
 // select loop
 // (this is the main loop in the para program)
-void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t heart_sec,size_t maxoutq,size_t maxbuf,int startlineno,int fdin,int fdout){
+void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t maxbuf,int startlineno,int fdin,int fdout){
   // set input and output to non-blocking
   setfdnonblock(fdin);
   setfdnonblock(fdout);
@@ -62,7 +62,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t heart_se
   FD_SET(fdin,&rdall_set);                          // set read fd - everything is started by reading from input
 
   // setup timer queue
-  size_t maxtmos=1+nsubprocesses;                   // max tmos is heartbeat timer + one timer for each child process
+  size_t maxtmos=1+2*(nsubprocesses+1);             // maxtmos: heartbeat timer + one timer for each child process (but, we need twice as many since timers are de-activated and removed later)
   struct priq*qtmo=tmoq_ctor(maxtmos);
   struct tmo_t*heart_tmo=tmo_ctor(HEARTBEAT,heart_sec,-1);
   tmoq_push(qtmo,heart_tmo);
@@ -102,6 +102,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t heart_se
     struct intpair p=spawn(cfile,cargv);
     FILE*fp=efdopen(p.second,"rwb");
     struct combuf*cb=combufpool_get(cbpool,fp,CBWRITE);
+    combuf_setpid(cb,p.first);
     combuftab_add(cbtab,cb);
   }
   // setup a table mapping fd --> FILE* 
@@ -165,17 +166,27 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t heart_se
       if(combuf_state(cb)!=CBWRITE)continue;                     // not a WRITE buffer
       inq2cbtab(qin,cb,&wrall_set,cbpool);                       // transfer data from inq to child process if possible
     }
-    // (3) write data stored in child process buffer
+    // (3) write data stored in child process buffer + set timer for chile process if needed
     for(size_t i=0;i<nsubprocesses;++i){
       struct combuf*cb=combuftab_at(cbtab,i);                    // get combuf for sub-process and check if we can write data to it
       if(combuf_state(cb)!=CBWRITE)continue;                     // not a WRITE buffer
-      cbtabwrite(cb,&rdall_set,&wrall_set,&wrset,cbpool);        // write data stored in child process buffer
+      int complete=cbtabwrite(cb,&rdall_set,&wrall_set,&wrset,cbpool);// write data stored in child process buffer
+      if(complete){                                              // if we wrote a complete buffer, then set child timer
+        struct tmo_t*client_tmo=tmo_ctor(CLIENT,client_tmo_sec,i);// the 'key' for timer is the index into 'cbtab'
+        combuf_settmo(combuftab_at(cbtab,i),client_tmo);          // set tmo in combuf fro client process so that we can retrieve it ;ater
+        tmoq_push(qtmo,client_tmo);                               // push timer on tmo queue
+      }
     }
-    // (4) read data into child process buffer
+    // (4) read data into child process buffer + remove timer from child process if needed
     for(size_t i=0;i<nsubprocesses;++i){
       struct combuf*cb=combuftab_at(cbtab,i);                    // get combuf for sub-process and check if we can write data to it
       if(combuf_state(cb)!=CBREAD)continue;                      // not a READ buffer
-      cbtabread(cb,&rdall_set,&rdset);                           // read data into child process buffer
+      int complete=cbtabread(cb,&rdall_set,&rdset);              // read data into child process buffer
+      if(complete){                                              // if we read a complete buffer then remove child timer
+        struct combuf*cb=combuftab_at(cbtab,i);                  // deactivate client timer 
+        struct tmo_t*client_tmo=combuf_tmo(cb);                  // ...
+        tmo_deactivate(client_tmo);                              // (priority queue deo snot support removal of element so we deactivate it), it wil be removed at some point)
+      }
     }
     // (5) copy data from sub process buffer to output queue
     for(size_t i=0;i<nsubprocesses;++i){
@@ -214,7 +225,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t heart_se
     efpclose(fp);
   }
   // wait for all child processes to terminate
-  // (all pid's in combufs in teh combuf table are valid)
+  // (all pid's in combufs in the combuf table are valid)
   for(size_t i=0;i<combuftab_size(cbtab);++i){
     struct combuf*cb=combuftab_at(cbtab,i);
     ewaitpid(combuf_pid(cb));
@@ -295,23 +306,28 @@ void inq2cbtab(struct inq_t*qin,struct combuf*cb,fd_set*wrall_set,struct combufp
   FD_SET(fd,wrall_set);                                     // trigger on write next time around
 }
 // write data waiting in child process combuf
-void cbtabwrite(struct combuf*cb,fd_set*rdall_set,fd_set*wrall_set,fd_set*wrset,struct combufpool*cbpool){
+// (return true if complete buffer was written, else false)
+int cbtabwrite(struct combuf*cb,fd_set*rdall_set,fd_set*wrall_set,fd_set*wrset,struct combufpool*cbpool){
   int fd=combuf_fd(cb);                                     // get fd to child process
-  if(!FD_ISSET(fd,wrset))return;                            // if we cannot write then nothing to do
+  if(!FD_ISSET(fd,wrset))return 0;                          // if we cannot write then nothing to do
   combuf_write(cb,1);                                       // we now have buffer for child process - write as much as possibly
-  if(!combuf_wrcomplete(cb))return;                         // we did not write complete buffer - will continue next time around
+  if(!combuf_wrcomplete(cb))return 0;                       // we did not write complete buffer - will continue next time around
   combuf_clearwr2rd(cb);                                    // if we wrote complete buffer, then switch combuf to read mode
   FD_SET(fd,rdall_set);                                     // prepare to read from child process (trigger on read in select())
   FD_CLR(fd,wrall_set);                                     // we are done writing to child process - clear write select() flag
+  return 1;
 }
 // read as much data as possible into child process buffer
 // (we do not transfer it to output queue yet)
-void cbtabread(struct combuf*cb,fd_set*rdall_set,fd_set*rdset){
-  if(combuf_rdcomplete(cb))return;                            // if buffer is complete then nothing to do here
+// (return true if we read a complete buffer, else return false)
+int cbtabread(struct combuf*cb,fd_set*rdall_set,fd_set*rdset){
+  if(combuf_rdcomplete(cb))return 0;                          // if buffer is complete then nothing to do here
   int fd=combuf_fd(cb);                                       // get fd to child process
-  if(!FD_ISSET(fd,rdset))return;                              // if we cannot read then nothing to do here
+  if(!FD_ISSET(fd,rdset))return 0;                            // if we cannot read then nothing to do here
   combuf_read(cb,1);                                          // read as much as possible
-  if(combuf_rdcomplete(cb))FD_CLR(fd,rdall_set);              // if we completed buffer, turn off read flag
+  if(!combuf_rdcomplete(cb))return 0;                         // return if we didn't read a complete line from child
+  FD_CLR(fd,rdall_set);                                       // if we completed buffer, turn off read flag
+  return 1;
 }
 // copy data from child process buffer to output queue
 void cbtab2outq(struct outq_t*qout,struct combuf*cb,fd_set*wrall_set,struct combufpool*cbpool,FILE*fpout){

@@ -2,8 +2,6 @@
 
 /* TODO
 
-  - make 'maxoutq' a cmd line parameter
-
   - support automatic resizing of priority queues - needed for output queue since we don't know how large the output queue will be
     right now we have a fixed size output queue - if we go over maximum the program stops with an error
 
@@ -33,8 +31,8 @@
 static int print=0;                                // print cmd line parameters (default false)
 static int verbose=0;                              // verbose level (maximum debug level on)
 static int version=0;                              // print version number and exit (default false)
-static int maxclientIsSet=0;                       // 'maxclients' parameters has been set
 static size_t maxclients=1;                        // #of child processes
+static size_t clientsec=5;                         // client tmo in seconds
 static size_t heartsec=5;                          // heart beat timer sec
 static size_t maxoutq=1000;                        // max size of output priority queue (a child process might be slow blocking output) 
 static size_t maxbuf=4096;                         // max length of a line in bytes
@@ -42,7 +40,7 @@ static int startlineno=0;                          // line number for first line
 static char*cmd=NULL;                              // command to execute in child processes
 static char*inputfile=NULL;                        // inputfile, if NULL the <stdin>
 static char*outputfile=NULL;                       // outputfile, if NULL the <stdout>
-static char*cargv[ARG_MAX+1];                      // command line arguments fro child processes
+static char*cargv[ARG_MAX+1];                      // command line arguments for child processes
 
 // usage strings
 static char*strusage[]={
@@ -55,8 +53,10 @@ static char*strusage[]={
   "  -v          verbose mode (maximum debug level, default: not set)",
   "  -V          print version number (optional, default: not set)",
   "  -b arg      maximum length in bytes of a line (optional, default: 4096)",
+  "  -T arg      timeout in seconds waiting for response from a sub-process (default 5)",
   "  -H arg      heartbeat in seconds (optional, default: 5)",
   "  -m arg      #of child processes to spawn (optional if specified as a positional parameter, default: 1)",
+  "  -M arg      maximum number of lines to store in the output queue before terminating (default: 1000)",
   "  -c arg      command to execute in child process (optional if specified as positional parameter)",
   "  -i arg      input file (default is standard input, optional)",
   "  -o arg      output file (default is standard output, optional)",
@@ -72,8 +72,10 @@ void printcmds(){
   fprintf(stderr,"-v: %s\n",bool2str(verbose));
   fprintf(stderr,"-V: %s\n",bool2str(version));
   fprintf(stderr,"-b: %lu\n",maxbuf);
+  fprintf(stderr,"-T: %lu\n",clientsec);
   fprintf(stderr,"-H: %lu\n",heartsec);
   fprintf(stderr,"-m: %lu\n",maxclients);
+  fprintf(stderr,"-M: %lu\n",maxoutq);
   fprintf(stderr,"-c: %s\n",cmd);
   fprintf(stderr,"-i: %s\n",inputfile?inputfile:"<stdin>");
   fprintf(stderr,"-i: %s\n",outputfile?outputfile:"<stdout>");
@@ -99,7 +101,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvVH:b:m:c:i:o:"))!=-1){                                 // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVT:H:b:m:c:i:o:"))!=-1){                                 // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
@@ -116,6 +118,10 @@ int main(int argc,char**argv){
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-b' option, must be a positive number",optarg);
       if((maxbuf=atol(optarg))<2)usage("parameter to '-b' must be a positive number greater than two (2)");
       break;
+    case 'T':
+      if(!isposnumber(optarg))usage("invalid parameter '%s' to '-T' option, must be a positive number",optarg);
+      if((clientsec=atol(optarg))<1)usage("parameter to '-h' must be a positive number greater than zero");
+      break;
     case 'H':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-H' option, must be a positive number",optarg);
       if((heartsec=atol(optarg))<1)usage("parameter to '-h' must be a positive number greater than zero");
@@ -123,7 +129,10 @@ int main(int argc,char**argv){
     case 'm':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-m' option, must be a positive number",optarg);
       maxclients=atol(optarg);
-      maxclientIsSet=1;
+      break;
+    case 'M':
+      if(!isposnumber(optarg))usage("invalid parameter '%s' to '-M' option, must be a positive number",optarg);
+      maxoutq=atol(optarg);
       break;
     case 'c':
       cmd=optarg;
@@ -171,5 +180,5 @@ int main(int argc,char**argv){
   if(inputfile)fdin=eopen(inputfile,O_RDONLY,0777);                            // open input file for reading
   if(outputfile)fdout=eopen(outputfile,O_WRONLY|O_CREAT|O_TRUNC,0777);         // open output file for writing
 
-  paraloop(cmd,cargv,maxclients,heartsec,maxoutq,maxbuf,startlineno,fdin,fdout);// kickoff select() loop
+  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,maxbuf,startlineno,fdin,fdout);// kickoff select() loop
 }
