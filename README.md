@@ -6,17 +6,60 @@
 
 # A simple example
 
-Say we want to process each line in a text file with a command and print the output in the same order as the input. As simple example we run **cat** as the sub-command echoing each line back to ```para``` :
+Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```. Without too much thought on efficiency we type up the following script:
 
 ```
-para -- 5 cat < input.txt > output.txt
+#!/bin/bash
+while read line; do
+  echo $line | md5sum | awk '{print $1}'
+done
 ```
 
-```para``` starts 5 sub processes each running the ```cat``` command.
+If we execute:
 
-Each line in the file is piped to one of the 5 sub processes. The output from the sub processes are then collected by ```para``` and written to ```stdout``` in the correct order.
+```
+echo hello | ./md5.bash
+```
 
-The example is somewhat contrived since ```cat``` does not do any time consuming work. The main point in running ```para``` after all to split time consuming work across multiple processes and afterwards assemble the result from sub-processes to reduce end-to-end processing time.
+we get the following output:
+
+```
+b1946ac92492d2347c6235b4d2611184
+```
+
+Now lets calculate the ```md5sum``` for each line in a medium size file having around 500K lines:
+
+```
+time zcat | monolingual.en.gz | ./md5.bash > out.md5sum
+```
+
+Running the command with an input file containing 530K lines the execution time is:
+
+```
+real    21m22.874s
+user    10m18.485s
+sys     28m48.447s
+```
+
+Now we'll use ```para``` to speed up the processing:
+
+```
+time zcat | monolingual.en.gz | para -- 5 ./md5.bash > out.md5sum
+```
+
+The processing time is now:
+
+```
+real    4m34.788s
+user    10m42.282s
+sys     29m59.132s
+```
+
+In our example ```para``` starts 5 sub processes running the ```md5.bash``` command. 
+
+We can see that the speedup is approximately 5 times. This is not always the case though. When the sub-command does not do much heavy calculations the overhead of ```para``` takes over and the ```para``` solution might perform worse.
+
+
 
 # **para** command line parameters
 

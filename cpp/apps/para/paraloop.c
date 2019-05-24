@@ -4,12 +4,6 @@
   - have an eof for output instead of checking output combuf all the time
   - maybe remove linenumber in combuf ctor and always set it to -1 if not specified
   - try to read many line simultaneously when reading input
-
-Notes:
-  we handlke fdset flags by:
-    - only when the state changes do we clear or set flags
-    -- otherwise we assume the flasg are in correct state
-
 */
 #include "error.h"
 #include "priq.h"

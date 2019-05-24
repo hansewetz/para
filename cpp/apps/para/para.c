@@ -2,6 +2,10 @@
 
 /* TODO
 
+  - possibly hvae a timeout when itmes are sitting in the output queue too long blocking progress
+
+  - write more than one line to a sub-process -- most probably we are not efficient in IO the way it is currently done
+
   - add more diagnostic debug messages in paraloop.c
 
   - draw a diagram showing how all data structures fits together --> add to README.md file on github
@@ -104,7 +108,6 @@ void usage(char const*msg,...){
   va_start(valist,msg);
   vfprintf(stderr,msg,valist);
   va_end(valist);
-  fprintf(stderr,"\n");
   for(char**p=strusage;*p;++p){
     fprintf(stderr,"%s\n",*p);
   }
@@ -113,7 +116,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvVT:H:b:m:c:i:o:"))!=-1){                                 // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVT:H:b:m:M:c:i:o:"))!=-1){                                 // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
