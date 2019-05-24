@@ -25,3 +25,4 @@ void priq_pop(struct priq*q);                          // pop top element
 size_t priq_size(struct priq*q);                       // get #of elements in queue
 int priq_full(struct priq*q);                          // check if we have reached maximum queue size
 size_t priq_maxsize(struct priq*q);                    // maximum size of queue
+void priq_remove(struct priq*q,void*el);               // remove an element from the queue ('el' must be an element in the queue)

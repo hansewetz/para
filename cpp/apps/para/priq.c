@@ -34,10 +34,11 @@ static void sinkel(struct priq*q){
     p=c;
   }
 }
-// float bottom element to its correct place
-static void floatel(struct priq*q){
+// float element to its correct place
+// (if 'c' == -1 bottom element is floated, else element at index 'c' is floated)
+static void floatel(struct priq*q,size_t c){
   if(q->nel_==0||q->nel_==1)return;
-  size_t c=q->nel_-1;
+  if(c==-1)c=q->nel_-1;
   while(1){
     if(c==0)break;
     size_t p=hparent(c);
@@ -76,7 +77,7 @@ void priq_push(struct priq*q,void*el){
   if(priq_full(q))app_message(FATAL,"priq overflow in priq_push()");
   q->vel_[q->nel_]=el;
   ++q->nel_;
-  floatel(q);
+  floatel(q,-1);
 }
 // get top element
 void*priq_top(struct priq*q){
@@ -101,4 +102,17 @@ int priq_full(struct priq*q){
 // maximum size of queue
 size_t priq_maxsize(struct priq*q){
   return q->maxel_;
+}
+// remove an element from the queue
+// ('el' must be an element in the queue)
+void priq_remove(struct priq*q,void*el){
+  // note: we need to find index of element before we can remove it - this is an O(N) operation
+  size_t ind=-1;                                     // linear serach through heap
+  for(size_t i=0;i<q->nel_&&ind==-1;++i){            // ...
+    if(q->vel_[i]==el)ind=i;                         // ...
+  }                                                  // ...
+  if(ind==-1)app_message(FATAL,"attempt to remove element from priority queue not part of queue");
+  swap(&q->vel_[ind],&q->vel_[q->nel_-1]);           // put last element in heap in deleted place
+  floatel(q,ind);                                    // float it to correct place
+  --q->nel_;                                         // last element no longer part of heap
 }

@@ -16,7 +16,7 @@ struct tmo_t{
   enum tmo_stat stat_;    // is timeout active or deactivated
   size_t sec_;            // timeout in seconds
   size_t key_;            // key which can be used by client code to correlate the timeout with something
-  size_t sec2tmo_;        // seconds until timeout from now
+  size_t sec2tmo_;        // seconds from epoch until timer pops
 };
 struct tmo_t*tmo_ctor(enum tmo_typ typ,size_t sec,size_t key);      // constructor
 void tmo_dtor(struct tmo_t*tmo);                                    // destructor
@@ -26,7 +26,7 @@ enum tmo_stat tmo_state(struct tmo_t*tmo);                          // state of 
 size_t tmo_sec(struct tmo_t*tmo);                                   // get timeout in sec
 size_t tmo_key(struct tmo_t*tmo);                                   // get key stored in timeout
 void tmo_deactivate(struct tmo_t*tmo);                              // deactivate a timeout
-size_t tmo_sec2tmo(struct tmo_t*tmo);                               // seconds until timer pops
+size_t tmo_sec2tmo(struct tmo_t*tmo);                               // seconds until timer pops (counted from epoch)
 struct tmo_t*tmo_reactivate(struct tmo_t*tmo);                      // activate timer - i.e., set 'sec2tmo' value relative to 'now'
 char const*const tmo_type2str(struct tmo_t*tmo);                    // get tmo type as a string
 
@@ -39,3 +39,4 @@ struct tmo_t*tmoq_front(struct priq*q);                               // get nex
 void tmoq_pop(struct priq*q);                                         // pop queue
 void tmoq_push(struct priq*q,struct tmo_t*tmo);                       // push a timeout on queue
 struct timespec*tmoq_select_timeout(struct priq*q,struct timespec*tv);// get a pointer to next timeout
+void tmoq_remove(struct priq*q,struct tmo_t*tmo);                     // remove tmo from queue

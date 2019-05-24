@@ -70,7 +70,7 @@ char const*const tmo_type2str(struct tmo_t*tmo){
 static int tmocmp(void*t1,void*t2){
   struct tmo_t*tt1=t1;
   struct tmo_t*tt2=t2;
-  return tmo_sec(tt1)<tmo_sec(tt2);
+  return tmo_sec(tt1)<=tmo_sec(tt2);
 }
 // (implemented as a priority queue)
 struct priq*tmoq_ctor(size_t maxel){
@@ -126,4 +126,8 @@ struct timespec*tmoq_select_timeout(struct priq*q,struct timespec*ts){
   }
   ts->tv_nsec=0;                                      // granularity is in seconds
   return ts;
+}
+// remove q timer from queue
+void tmoq_remove(struct priq*q,struct tmo_t*tmo){
+  priq_remove(q,tmo);
 }

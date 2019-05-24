@@ -2,7 +2,7 @@
 
 ```para```is a program for processing large line based files efficiently.
 
-```para``` delegates processing of each line in the file to a user specified sub command. The output is generated so that the output from the sub command for line N is also line N in the output.
+```para``` delegates processing of each line in the file to a user specified sub command. The output is generated so that the output from the sub command for input line N is also line N in the output.
 
 # A simple example
 
@@ -32,6 +32,7 @@ options:
   -v          verbose mode (maximum debug level, default: not set)
   -V          print version number (optional, default: not set)
   -b arg      maximum length in bytes of a line (optional, default: 4096)
+  -T arg      timeout in seconds waiting for response from a sub-process (default 5)
   -H arg      heartbeat in seconds (optional, default: 5)
   -m arg      #of child processes to spawn (optional if specified as a positional parameter, default: 1)
   -M arg      maximum number of lines to store in the output queue before terminating (default: 1000)
@@ -42,6 +43,23 @@ options:
   maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)
   cmd         command to execute in child processes (optional if specified as '-c' option)
 ```
+## timeout waiting for sub-process
+
+After ```para``` sends a line to a sub-process for processing it waits for a response. If the response time is longer than a specified timeout value ```para``` will terminate with an error. 
+
+For example, forcing client sub-processes to take 2 seconds to respond and setting the ```para``` timeout to 1 second as in the following comment:
+
+```
+echo 'hello' | para -T 1 -- 5 unbuffer -p awk '{system("sleep 2");print $1;}'
+```
+
+will generate a timeout error:
+
+```
+info: timer popped, type: CLIENT
+fatal: child process timeout for pid: 28599 ... terminating
+```
+
 ## heartbeat timer
 
 ```para``` supports a *heartbeat* timer so that it is possible to see that ```para``` is alive when processing input comes sporadically. For example:
@@ -78,7 +96,7 @@ The two (2) important internal limits in ```para``` are:
 
 NOTE! not yet done
 
-# Running sub-commands that buffer
+# Running sub-commands that buffer data
 
 Sub-commands that buffers input and/or output presents a problem to ```para```. This section 
 
@@ -96,11 +114,11 @@ prints:
 hello zgzin
 ```
 
-Without the ```--unbuffered``` flag ```sed``` will simply hang since 
+Without the ```--unbuffered``` flag ```sed``` will simply hang while waiting in a ```read``` system call that tries to read a large chunk of data from ```stdin```.
 
 ## a general solution
 
-A more general solution to buffering is done using the ``unbuffer`` command:
+A more general solution to buffering is to use the ``unbuffer`` command:
 
 ```
 echo 'hello again' | para -- 5 unbuffer -p sed 's/a/z/g'
@@ -113,3 +131,29 @@ Running ```awk```as a sub-command presents similar buffering problems that also 
 ```
 para -- 10 unbuffer -p gawk '{for (i=NF; i>1; i--) printf("%s ",$i); printf("%s\n",$1)}' 
 ```
+
+
+
+# TODOs and Ideas
+
+## network input/output
+
+## sub-processes as network based servers
+
+```para``` starts resources (sub-processes) by executing a ```fork```/```exec``` of a program. It should be possible to run ```para``` in an environment where instead ```para``` connects to network based resources and disconnects from them when all input has been processed.
+
+For example, instead of ```fork```/```exec``` of 5 sub-processes ```para``` can create 5 connections to a TCP based server which is already running.
+
+## optimization
+
+```para``` currently writes one line at a time to a sub-process. This is not very efficient since ```para``` will perform more context switches than needed.
+
+Instead ```para``` should write multiple lines to a single sub-process in one shot, track the lines that were sent to a sub-process and read multiple lines back from a single sub-process.
+
+## automatic re-sizing of internal queues
+
+* the priority queue ```priq``` does not support automatic re-sizing - this should be fixed
+* buffers (```buf```) have fixes size and cannot be re-sized - we can probably live with this 
+* ```combuftab``` is not re-sizable - we cab probably live with this since we don't create new sub-processes dynamically
+
+

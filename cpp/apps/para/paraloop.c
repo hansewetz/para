@@ -62,7 +62,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   FD_SET(fdin,&rdall_set);                          // set read fd - everything is started by reading from input
 
   // setup timer queue
-  size_t maxtmos=1+2*(nsubprocesses+1);             // maxtmos: heartbeat timer + one timer for each child process (but, we need twice as many since timers are de-activated and removed later)
+  size_t maxtmos=1+nsubprocesses;                   // maxtmos: heartbeat timer + one timer for each child process
   struct priq*qtmo=tmoq_ctor(maxtmos);
   struct tmo_t*heart_tmo=tmo_ctor(HEARTBEAT,heart_sec,-1);
   tmoq_push(qtmo,heart_tmo);
@@ -185,7 +185,8 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
       if(complete){                                              // if we read a complete buffer then remove child timer
         struct combuf*cb=combuftab_at(cbtab,i);                  // deactivate client timer 
         struct tmo_t*client_tmo=combuf_tmo(cb);                  // ...
-        tmo_deactivate(client_tmo);                              // (priority queue deo snot support removal of element so we deactivate it), it wil be removed at some point)
+        tmoq_remove(qtmo,client_tmo);                            // remove timer from queue
+        tmo_dtor(client_tmo);                                    // destroy timer
       }
     }
     // (5) copy data from sub process buffer to output queue
@@ -218,7 +219,10 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
       break;
     }
   }
+  app_message(DEBUG,"#timers in queue: %d (expected: 1 HEARTBEAT timer)",qtmo->nel_);
+
   // close all FILE* in fd2fpmap
+  app_message(DEBUG,"closing files ...");
   for(int i=0;i<fd2fpmap_size;++i){
     FILE*fp=fd2fpmap[i];
     if(!fp)continue;
@@ -226,17 +230,20 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   }
   // wait for all child processes to terminate
   // (all pid's in combufs in the combuf table are valid)
+  app_message(DEBUG,"waiting for child processes ...");
   for(size_t i=0;i<combuftab_size(cbtab);++i){
     struct combuf*cb=combuftab_at(cbtab,i);
     ewaitpid(combuf_pid(cb));
   }
   // cleanup allocated memory
+  app_message(DEBUG,"cleaning up memory ...");
   free(fd2fpmap);                                                // free memory for table mapping fd --> FILE*
   combuftab_dtor(cbtab);                                         // destroy child process table
   tmoq_dtor(qtmo);                                               // cleanup time queue
   outq_dtor(qout);                                               // output queue
   inq_dtor(qin);                                                 // input queue
   combufpool_dtor(cbpool);                                       // pool of combufs
+  app_message(DEBUG,"... cleanup done");
 }
 // read a line from input and store in input queue
 // (we must know we can read since if we read 0 bytes we'll interpret it as if we rteached eof)

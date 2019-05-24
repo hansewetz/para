@@ -2,6 +2,18 @@
 
 /* TODO
 
+  - add more diagnostic debug messages in paraloop.c
+
+  - draw a diagram showing how all data structures fits together --> add to README.md file on github
+
+  - make allocation of tmo's more efficient - create and copy by value
+
+  - better scheme to remove timers from timer queue - right now it's an O(N+logN) operation
+    (we can as well re-build the heap in linear time)
+
+  - add dump of stats at end of processing
+    (internal details, stats about #of lines, timings etc.)
+
   - support automatic resizing of priority queues - needed for output queue since we don't know how large the output queue will be
     right now we have a fixed size output queue - if we go over maximum the program stops with an error
 
