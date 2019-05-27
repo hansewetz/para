@@ -3,6 +3,7 @@
 #include "error.h"
 #include "sys.h"
 #include "util.h"
+#include <string.h>
 
 // --- helper functions ---
 
@@ -51,9 +52,10 @@ static void floatel(struct priq*q,size_t c){
 // --- public functions ---
 
 // constructor
-struct priq*priq_ctor(size_t maxel,priq_cmp_t cmp){
+struct priq*priq_ctor(size_t maxel,size_t inc,priq_cmp_t cmp){
   struct priq*q=emalloc(sizeof(struct priq));
   q->maxel_=maxel;
+  q->inc_=inc;
   q->nel_=0;
   q->cmp_=cmp;
   q->vel_=emalloc(maxel*sizeof(void*));
@@ -74,7 +76,16 @@ void priq_dump(struct priq*q,priq_prnt_el pf){
 }
 // push an element on queue
 void priq_push(struct priq*q,void*el){
-  if(priq_full(q))app_message(FATAL,"priq overflow in priq_push()");
+  if(priq_full(q)){                  // check if we have eneough room to push element
+    if(q->inc_==0)app_message(FATAL,"priq overflow in priq_push(), cannot extend queue since incremenet is zero (0)");
+    size_t oldmaxel=q->maxel_;
+    size_t newmaxel=oldmaxel+q->inc_;
+    void**vel_old=q->vel_;
+    app_message(WARNING,"priq overflow in priq_push(), extending priority queue from: %lu element to %lu elements",oldmaxel,newmaxel);
+    q->maxel_=newmaxel;
+    q->vel_=emalloc(newmaxel*sizeof(void*));
+    memcpy(q->vel_,vel_old,oldmaxel*sizeof(q->vel_[0]));
+  }
   q->vel_[q->nel_]=el;
   ++q->nel_;
   floatel(q,-1);

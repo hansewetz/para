@@ -74,7 +74,7 @@ static int tmocmp(void*t1,void*t2){
 }
 // (implemented as a priority queue)
 struct priq*tmoq_ctor(size_t maxel){
-  return priq_ctor(maxel,tmocmp);
+  return priq_ctor(maxel,0,tmocmp);
 }
 // timer queue destructor
 void tmoq_dtor(struct priq*q){

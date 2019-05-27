@@ -44,7 +44,7 @@ void sigchldHandler(int signo){
 }
 // select loop
 // (this is the main loop in the para program)
-void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t maxbuf,int startlineno,int fdin,int fdout){
+void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t outqinc,size_t maxbuf,int startlineno,int fdin,int fdout){
   // set input and output to non-blocking
   setfdnonblock(fdin);
   setfdnonblock(fdout);
@@ -69,7 +69,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   // setup output queue
   // (output queue is a priority queue with lowest line number at front)
   int outputeof=0;
-  struct outq_t*qout=outq_ctor(maxoutq,startlineno);
+  struct outq_t*qout=outq_ctor(maxoutq,outqinc,startlineno);
 
   // setup a pool of free combuf objects
   // (combufpool is a free pool of combuffers)

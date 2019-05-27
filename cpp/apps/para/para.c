@@ -18,9 +18,6 @@
   - add dump of stats at end of processing
     (internal details, stats about #of lines, timings etc.)
 
-  - support automatic resizing of priority queues - needed for output queue since we don't know how large the output queue will be
-    right now we have a fixed size output queue - if we go over maximum the program stops with an error
-
   - support input/output as tcp connectios
     (must pass file decsriptors directly to 'paraloop()' instead of havinf para loop open input/outrput files
 
@@ -51,6 +48,7 @@ static size_t maxclients=1;                        // #of child processes
 static size_t clientsec=5;                         // client tmo in seconds
 static size_t heartsec=5;                          // heart beat timer sec
 static size_t maxoutq=1000;                        // max size of output priority queue (a child process might be slow blocking output) 
+static size_t incoutq=1000;                        // increment when extending output queue
 static size_t maxbuf=4096;                         // max length of a line in bytes
 static int startlineno=0;                          // line number for first line
 static char*cmd=NULL;                              // command to execute in child processes
@@ -72,7 +70,8 @@ static char*strusage[]={
   "  -T arg      timeout in seconds waiting for response from a sub-process (default 5)",
   "  -H arg      heartbeat in seconds (optional, default: 5)",
   "  -m arg      #of child processes to spawn (optional if specified as a positional parameter, default: 1)",
-  "  -M arg      maximum number of lines to store in the output queue before terminating (default: 1000)",
+  "  -M arg      maximum number of lines to store in the output queue before terminating, if non-zero the queue will be incremented (see '-x' option) (default: 1000)",
+  "  -x arg      increment output queue with this #of elements if overflow (default: 1000)",
   "  -c arg      command to execute in child process (optional if specified as positional parameter)",
   "  -i arg      input file (default is standard input, optional)",
   "  -o arg      output file (default is standard output, optional)",
@@ -92,14 +91,16 @@ void printcmds(){
   fprintf(stderr,"-H: %lu\n",heartsec);
   fprintf(stderr,"-m: %lu\n",maxclients);
   fprintf(stderr,"-M: %lu\n",maxoutq);
+  fprintf(stderr,"-I: %lu\n",incoutq);
   fprintf(stderr,"-c: %s\n",cmd);
   fprintf(stderr,"-i: %s\n",inputfile?inputfile:"<stdin>");
-  fprintf(stderr,"-i: %s\n",outputfile?outputfile:"<stdout>");
+  fprintf(stderr,"-o: %s\n",outputfile?outputfile:"<stdout>");
   fprintf(stderr,"----------------------------\n");
 }
 // print version
 void printversion(){
   fprintf(stderr,"@version: %d.%d\n",PARA_VERSION_MAJOR,PARA_VERSION_MINOR);
+  exit(0);
 }
 // usage function - print message to stderr and exit
 // print an application message and continue
@@ -116,7 +117,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvVT:H:b:m:M:c:i:o:"))!=-1){                                 // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVT:H:b:m:M:x:c:i:o:"))!=-1){                                 // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
@@ -148,6 +149,10 @@ int main(int argc,char**argv){
     case 'M':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-M' option, must be a positive number",optarg);
       maxoutq=atol(optarg);
+      break;
+    case 'x':
+      if(!isposnumber(optarg))usage("invalid parameter '%s' to '-x' option, must be a positive number",optarg);
+      incoutq=atol(optarg);
       break;
     case 'c':
       cmd=optarg;
@@ -195,5 +200,6 @@ int main(int argc,char**argv){
   if(inputfile)fdin=eopen(inputfile,O_RDONLY,0777);                            // open input file for reading
   if(outputfile)fdout=eopen(outputfile,O_WRONLY|O_CREAT|O_TRUNC,0777);         // open output file for writing
 
-  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,maxbuf,startlineno,fdin,fdout);// kickoff select() loop
+  // kickoff select() loop
+  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,incoutq,maxbuf,startlineno,fdin,fdout);
 }

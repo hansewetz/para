@@ -14,10 +14,10 @@ static int combufcmp(void*cb1,void*cb2){
   return combuf_lineno(ccb1)<combuf_lineno(ccb2);
 }
 // time queue constructor
-struct outq_t*outq_ctor(size_t maxel,int startlineno){
+struct outq_t*outq_ctor(size_t maxel,size_t inc,int startlineno){
   struct outq_t*ret=emalloc(sizeof(struct outq_t));
   ret->nextlineno_=startlineno;
-  ret->pq_=priq_ctor(maxel,combufcmp);
+  ret->pq_=priq_ctor(maxel,inc,combufcmp);
   return ret;
 }
 // output queue destructor
@@ -38,8 +38,6 @@ struct combuf*outq_front(struct outq_t*q){
 }
 // push a combuf on queue
 void outq_push(struct outq_t*q,struct combuf*cb){
-  if(priq_full(q->pq_))app_message(FATAL,"attempt to push combuf on full outq in outq_push(), qsize: %lu, maxqsize: %lu",
-      priq_size(q->pq_),priq_maxsize(q->pq_));
   priq_push(q->pq_,cb);
 }
 // pop queue

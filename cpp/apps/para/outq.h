@@ -13,7 +13,7 @@ struct outq_t{
 };
 
 // basic methods
-struct outq_t*outq_ctor(size_t maxel,int startlineno);           // output queue ctor
+struct outq_t*outq_ctor(size_t maxel,size_t inc,int startlineno);// output queue ctor
 void outq_dtor(struct outq_t*q);                                 // output queue destructor
 struct combuf*outq_front(struct outq_t*q);                       // get next combuf for output
 void outq_push(struct outq_t*q,struct combuf*cb);                // push a combuf on queue
