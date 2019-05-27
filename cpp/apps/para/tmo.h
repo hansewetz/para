@@ -8,12 +8,10 @@
 
 // enum for timeout types
 enum tmo_typ{HEARTBEAT=0,CLIENT=1};
-enum tmo_stat{ACTIVE=0,DEACTIVE=1};
 
 // timeout class
 struct tmo_t{
   enum tmo_typ typ_;      // type of timeout (child process or heartbeat)
-  enum tmo_stat stat_;    // is timeout active or deactivated
   size_t sec_;            // timeout in seconds
   size_t key_;            // key which can be used by client code to correlate the timeout with something
   size_t sec2tmo_;        // seconds from epoch until timer pops
@@ -22,7 +20,6 @@ struct tmo_t*tmo_ctor(enum tmo_typ typ,size_t sec,size_t key);      // construct
 void tmo_dtor(struct tmo_t*tmo);                                    // destructor
 void tmo_dump(struct tmo_t*tmo,FILE*fp,int nl);                     // print timeout
 enum tmo_typ tmo_type(struct tmo_t*tmo);                            // type of timeout
-enum tmo_stat tmo_state(struct tmo_t*tmo);                          // state of timeout
 size_t tmo_sec(struct tmo_t*tmo);                                   // get timeout in sec
 size_t tmo_key(struct tmo_t*tmo);                                   // get key stored in timeout
 void tmo_deactivate(struct tmo_t*tmo);                              // deactivate a timeout

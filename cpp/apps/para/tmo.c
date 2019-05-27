@@ -11,7 +11,6 @@
 struct tmo_t*tmo_ctor(enum tmo_typ typ,size_t sec,size_t key){
   struct tmo_t*ret=emalloc(sizeof(struct tmo_t));
   ret->typ_=typ;                // type of timer - we support HEARTBEAT and CLIENT timers
-  ret->stat_=ACTIVE;            // is timer active or should it be ignored
   ret->sec_=sec;                // timer value is in seconds
   ret->key_=key;                // a user defined key - typically an index into some table
   return tmo_reactivate(ret);   // activate timer
@@ -22,10 +21,9 @@ void tmo_dtor(struct tmo_t*tmo){
 }
 // print timeout
 void tmo_dump(struct tmo_t*tmo,FILE*fp,int nl){
-  fprintf(fp,"type: %s, sec: %lu, state: %s, key: %lu, sec2tmo: %lu",
+  fprintf(fp,"type: %s, sec: %lu, key: %lu, sec2tmo: %lu",
           (tmo->typ_==HEARTBEAT?"HEARTBEAT":"CLIENT"),
           tmo->sec_,
-          (tmo->stat_==ACTIVE?"ACTIVE":"DEACTIVE"),
           tmo->key_,
           tmo->sec2tmo_);
   if(nl)fprintf(fp,"\n");
@@ -34,10 +32,6 @@ void tmo_dump(struct tmo_t*tmo,FILE*fp,int nl){
 enum tmo_typ tmo_type(struct tmo_t*tmo){
   return tmo->typ_;
 }
-// state of timeout
-enum tmo_stat tmo_state(struct tmo_t*tmo){
-  return tmo->stat_;
-}
 // get timeout in sec
 size_t tmo_sec(struct tmo_t*tmo){
   return tmo->sec_;
@@ -45,10 +39,6 @@ size_t tmo_sec(struct tmo_t*tmo){
 // get key stored in timeout
 size_t tmo_key(struct tmo_t*tmo){
   return tmo->key_;
-}
-// deactivate a timeout
-void tmo_deactivate(struct tmo_t*tmo){
-  tmo->stat_=DEACTIVE;
 }
 // seconds until timer pops
 size_t tmo_sec2tmo(struct tmo_t*tmo){
@@ -85,27 +75,14 @@ void tmoq_dtor(struct priq*q){
   }
   priq_dtor(q);
 }
-// purge top of queue from DEACTIVE timeouts
-// (we skip all timeouts that have been deactivated and return NULL if no timers found)
-// (deactive timeouts are destroyed when found)
-void qtmo_purge(struct priq*q){
-  while(priq_size(q)){
-    struct tmo_t*tmo=priq_top(q);
-    if(tmo_state(tmo)==ACTIVE)return;
-    priq_pop(q);
-    tmo_dtor(tmo);
-  }
-}
 // get next timeout
 struct tmo_t*tmoq_front(struct priq*q){
-  qtmo_purge(q);
   if(priq_size(q)==0)return NULL;
   return priq_top(q);
 }
 // pop queue
 // (popped element is not being destroyed)
 void tmoq_pop(struct priq*q){
-  qtmo_purge(q);
   if(priq_size(q)>0)priq_pop(q);
 }
 // push a timeout on queue
