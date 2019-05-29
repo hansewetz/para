@@ -280,11 +280,11 @@ int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool)
 // (we stop when outq is closed (eof), qout is empty or we cannot write more data to output
 // (returns 1 if eof reached, else false)
 int flushoutq(struct outq_t*qout,struct combufpool*cbpool){
-  int firsttime=1;
+  int firsttime=1;                                           // must track if first time, since writing 0 bytes first time means eof
   while(outq_ready(qout)){                                   // as long as we have a buffer with right line number ...
     struct combuf*cbout=outq_front(qout);                    // get top of queue (we'll only have one entry in queue for right now)
     size_t nwritten=0;
-    if(!combuf_eof(cbout))nwritten=combuf_write(cbout,firsttime); // write unless we reached eof on output
+    if(!combuf_eof(cbout))nwritten=combuf_write(cbout,firsttime);// write unless we reached eof on output
     if(combuf_wrcomplete(cbout)){                            // if buffer is completly written pop it from queue
       outq_pop(qout);                                        // ...
       combufpool_putback(cbpool,cbout);                      // ...

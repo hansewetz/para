@@ -2,6 +2,9 @@
 #pragma once
 #include <stdio.h>
 
+// --- simple heap based priority queue ---
+// (used by timer and output queues)
+
 // comparison function
 // (first element < second element)
 typedef int(*priq_cmp_t)(void*,void*);
@@ -17,6 +20,7 @@ struct priq{
   priq_cmp_t cmp_;      // comparison function for elements in queue
   void**vel_;           // array of pointers to elements
 };
+// methods
 struct priq*priq_ctor(size_t maxel,size_t inc,priq_cmp_t cmp);  // constructor
 void priq_dtor(struct priq*q);                                  // destructor
 void priq_dump(struct priq*q,priq_prnt_el pf);                  // print queue for debug purpose

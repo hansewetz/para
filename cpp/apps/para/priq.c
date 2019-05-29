@@ -5,7 +5,7 @@
 #include "util.h"
 #include <string.h>
 
-// --- helper functions ---
+// --- helper functions for heap management ---
 
 // swap objects
 void swap(void**e1,void**e2){

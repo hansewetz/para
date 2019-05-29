@@ -1,12 +1,12 @@
-# ```para```
+# ```para``` <sub><sup>(version 0.2)</sup></sub>
 
-```para```is a program for processing large line based text files efficiently.
+```para```is a program for efficiently apply a function on each line in large text files and collect the resulting output.
 
-```para``` delegates processing of each line in the file to a user specified sub command which is run by ```para```. ```para``` collects the output from sub commands and prints them in the same order as they occurred in the input file.
+```para``` delegates processing of each line in a file to a user specified sub command which is managed and executed by ```para```. ```para``` collects the output from sub-commands and prints them in the same order as they occurred in the input file.
 
 # A simple example
 
-Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```. Without too much thought on efficiency we type up the following script:
+Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```. Without thinking too much about efficiency we type up the following script:
 
 ```
 #!/bin/bash
@@ -15,13 +15,13 @@ while read line; do
 done
 ```
 
-When we execute:
+The following command:
 
 ```
-echo hello | ./md5.bash
+$ echo hello | ./md5.bash
 ```
 
-we get the following output:
+then generates the output:
 
 ```
 b1946ac92492d2347c6235b4d2611184
@@ -30,10 +30,10 @@ b1946ac92492d2347c6235b4d2611184
 Now lets calculate the ```md5sum``` for each line in a medium size file having around 500K lines:
 
 ```
-time zcat | monolingual.en.gz | ./md5.bash > out.md5sum
+$ time zcat | monolingual.en.gz | ./md5.bash > out1.md5sum
 ```
 
-Running the command with an input file containing 530K lines the execution time is:
+The execution time is slightly more than 20 minutes:
 
 ```
 real    21m22.874s
@@ -44,7 +44,7 @@ sys     28m48.447s
 Now we'll use ```para``` to speed up the processing:
 
 ```
-time zcat | monolingual.en.gz | para -- 5 ./md5.bash > out.md5sum
+$ time zcat | monolingual.en.gz | para -- 5 ./md5.bash > out2.md5sum
 ```
 
 The processing time is now:
@@ -55,38 +55,45 @@ user    10m42.282s
 sys     29m59.132s
 ```
 
+We can also make sure that both commends generate the same output:
+
+```
+$ diff out1.md5sum out2.md5sumn | wc -l
+0
+```
+
 In our example ```para``` starts 5 sub processes running the ```md5.bash``` command. 
 
-We can see that the speedup is approximately 5 times. This is not always the case though. When the sub-command does not do much heavy calculations the overhead of ```para``` takes over and the ```para``` solution might perform worse.
+We can see that the speedup is approximately 5 times. Linear speedup is not always possible though. When the sub-command does not do much heavy calculations the overhead of ```para``` takes over and the ```para``` solution might perform worse.
 
 # Installing ```para```
 
-Install ```para``` by following the steps below on a UNIX box:
+Install ```para``` by following the steps:
 ```
-mkdir para && cd para
-git clone https://github.com/hansewetz/para.git .
-mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX:PATH=<my-install-dir>  .. && make && make install
-export PATH=${PATH}:<my-install-dir>/bin
+$ mkdir para && cd para
+$ git clone https://github.com/hansewetz/para.git .
+$ mkdir build && cd build
+$ cmake -DCMAKE_INSTALL_PREFIX:PATH=<my-install-dir>  .. && make && make install
+$ export PATH=${PATH}:<my-install-dir>/bin
 ```
 
-You can now  to execute:
+You can now  execute:
 
 ```$> para -- 1 cat
-$>para -- 1 cat
+$ para -- 1 cat                          # run with a single sub-process
 Hello                                    # your text
 Hello                                    # echoed by para
-info: timer popped, type: HEARTBEAT
-info: timer popped, type: HEARTBEAT
-^D
+info: timer popped, type: HEARTBEAT      # default heartbeat is every 5 sec
+info: timer popped, type: HEARTBEAT      # ...
+^D                                       # stop with ^D
 ```
 
 # ```para``` command line parameters
 
-```para``` is a written and designed as a standard UNIX like utility. It takes named command line parameters, it reads from ```stdin``` and ```stdout```. For backwards compatibility and historical reasons it also supports a few positional command line parameters. Running ```	para -h``` produces:
+```para``` is a written and designed as a standard UNIX like utility. It takes named command line parameters as well as a few positional parameters. By default it  reads from ```stdin``` and ```stdout```. For backwards compatibility and historical reasons few positional command line parameters are supported. Running ```	para -h``` produces:
 
 ```
-Usage:
+$ Usage:
   para [options] -- maxclients cmd cmdargs ...
 
 options:
@@ -107,19 +114,19 @@ options:
   maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)
   cmd         command to execute in child processes (optional if specified as '-c' option)
 ```
-```para``` takes a relatively large number of command line parameters. Some parameters control basic functional behavior whereas other are used fro tweaking ```para``` at the technical level. Most parameters related to technical issues have reasonable default values and should not have to be modified.
+```para``` takes a relatively small number of command line parameters. Some parameters control basic functional behavior whereas other are used for tweaking ```para``` at the technical level. Most parameters related to technical issues have reasonable default values and should not have to be specified.
 
 ## timeout while waiting for sub-process
 
-After ```para``` sends a line to a sub-process it waits for a response. If the response time is longer than a specified timeout value ```para``` terminates all process with an error message. 
+After ```para``` sends a line to a sub-process it waits for a response. If the response time is longer than a specified timeout value (default is 5 5 seconds) ```para``` terminates all sub-processes with an error message and exits with a non-zero error code.
 
-For example, forcing client sub-processes to take 2 seconds to respond and setting the ```para``` timeout to 1 second as in the following command:
+For example, if we force client sub-processes to take 2 seconds to respond and while setting the ```para``` timeout to 1 second as in the following command:
 
 ```
-echo 'hello' | para -T 1 -- 5 unbuffer -p awk '{system("sleep 2");print $1;}'
+$ echo 'hello' | para -T 1 -- 5 unbuffer -p awk '{system("sleep 2");print $1;}'
 ```
 
-will generate a timeout error:
+we will receive a timeout error:
 
 ```
 info: timer popped, type: CLIENT
@@ -128,11 +135,11 @@ fatal: child process timeout for pid: 28599 ... terminating
 
 ## heartbeat timer
 
-```para``` supports a *heartbeat* timer so that it is possible to see that ```para``` is alive when processing input comes sporadically. For example:
+```para``` supports a *heartbeat* timer so that it is possible to see that ```para``` is alive even when processing input is received sporadically. For example:
 
 ```
-# run para with a heartbeat of 2 seconds (-H 2) echoing input to output
-while :; do sleep 1; echo hello; done | ./cpp/apps/para/para -H 2 -- 5 cat
+# run para with a 2 second heartbeat (-H 2) echoing input to output
+$ while :; do sleep 1; echo hello; done | ./cpp/apps/para/para -H 2 -- 5 cat
 ```
 
 will generate output similar to:
@@ -173,7 +180,7 @@ This section will show you have to manage ```sed```, ```awk``` and other program
  ```sed``` can be run with the flag ```--unbufferd``` when executed as a sub-command to ```para```:
 
 ```
-echo 'hello again' | para -- 5 sed --unbuffered 's/a/z/g'
+$ echo 'hello again' | para -- 5 sed --unbuffered 's/a/z/g'
 ```
 
 prints:
@@ -189,7 +196,7 @@ Without the ```--unbuffered``` flag ```sed``` will simply hang while waiting in 
 A more general solution to buffering is to use the ``unbuffer`` command:
 
 ```
-echo 'hello again' | para -- 5 unbuffer -p sed 's/a/z/g'
+$ echo 'hello again' | para -- 5 unbuffer -p sed 's/a/z/g'
 ```
 
 ```unbuffer``` runs ```sed``` ensuring that input and output into and from ```sed``` is not buffered.
@@ -197,10 +204,30 @@ echo 'hello again' | para -- 5 unbuffer -p sed 's/a/z/g'
 Running ```awk```as a sub-command presents similar buffering problems that also can be solved using ```unbuffer```. For example, reversing the order of words on each line can be done with the command:
 
 ```
-para -- 10 unbuffer -p gawk '{for (i=NF; i>1; i--) printf("%s ",$i); printf("%s\n",$1)}' 
+$ para -- 10 unbuffer -p gawk '{for(i=NF;i>1;i--) printf("%s ",$i); printf("%s\n",$1)}' 
 ```
 
+# Para internals
+
+```para``` is implemented using C. The choice was done mostly for reasons of portability. An alternative (and simpler solution) would have been to code ```para``` in C++ using ```boost asio``` libraries for support. However, portability and ease of installation (avoid having correct installation of C++ support and boost libraries) won  the language battle. 
+
+## the ```select``` call
+
+```para``` is at the core a loop around call to the ```select``` (in the implementation it is actually a call to ```pselect``` so that signals are handled properly) system call. The ```select``` call is configured in each loop with a set of file descriptors and a timeout. 
+
+## buffers
+
+NOTE! not yet done
+
+* buffers
+* timers
+* communication buffers
+* sub-processes
+* output queue
+
 # TODOs and Ideas
+
+This section lines out some ideas that have not yet been designed or implemented.
 
 ## network input/output
 
@@ -224,7 +251,13 @@ Instead ```para``` should write multiple lines to a single sub-process in one sh
 
 ## automatic re-sizing of internal data structures
 
-* buffers (```buf```) have fixes size and cannot be re-sized - we can probably live with this 
+* buffers (```buf```) have fixes size and cannot be re-sized - we can probably live with this but if time allows a better and more flexible buffering machinery should be implemented
 * ```combuftab``` (table containing a communication buffer for each sub-process) is not re-sizable - we can probably live with this since we don't create new sub-processes dynamically
 
+## controlling which lines to process
 
+* line number to start processing
+* #of lines to process
+* process only each Nth line
+* process only lines matching regular expression
+* process only line numbers matching regular expression

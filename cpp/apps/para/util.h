@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+// --- a few basic utility functions ---
+
 // pair struct
 struct intpair{
   int first;

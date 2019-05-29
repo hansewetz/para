@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-// --- timeout struct ---
+// --- timeout struct together with a timer queue ---
+// (timer queue is based on a heap based priority queue)
 
 // enum for timeout types
 enum tmo_typ{HEARTBEAT=0,CLIENT=1};

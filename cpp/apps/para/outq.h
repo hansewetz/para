@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// --- output queue fuctionalities ---
+// --- type used for output queue ---
 // (wrapper around 'priq')
 
 // output queue struct
 struct outq_t{
-  int nextlineno_;                                               // next line number to output (starting at 0)
+  int nextlineno_;                                               // next line number to output
   struct priq*pq_;                                               // priority queue
 };
 

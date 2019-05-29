@@ -2,7 +2,8 @@
 
 /* TODO
 
-  - possibly hvae a timeout when itmes are sitting in the output queue too long blocking progress
+  - possibly have a timeout when itmes are sitting in the output queue too long blocking progress
+    possibly also add a maximum size of output queue even when an incremenet for the queue is specified
 
   - write more than one line to a sub-process -- most probably we are not efficient in IO the way it is currently done
 
@@ -19,10 +20,8 @@
     (internal details, stats about #of lines, timings etc.)
 
   - support input/output as tcp connectios
-    (must pass file decsriptors directly to 'paraloop()' instead of havinf para loop open input/outrput files
 
   - support 'child process' being a tcp service
-    (paraloop must then receive fd's to child processes - in general a 'process block' containing information about child process)
 
 */
 

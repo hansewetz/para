@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// --- general purpose read/write buffer ---
+// (data is read/written from/to fd's using this buffer structure)
+
 // type of buffer
 enum buftype{RDBUF=0,WRBUF};
 

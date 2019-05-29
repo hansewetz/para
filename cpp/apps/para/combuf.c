@@ -6,8 +6,6 @@
 #include "const.h"
 #include "util.h"
 
-// --- combuf struct ---
-
 // convert a state to a string
 static char*state2string(enum combuf_state state){
   static char*st2str[]={"CBREAD","CBWRITE"};

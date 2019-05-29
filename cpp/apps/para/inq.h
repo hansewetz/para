@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// --- input queue fuctionalities ---
+// --- input queue ---
 // (plain simple FIFO queue)
 
 // input queue struct

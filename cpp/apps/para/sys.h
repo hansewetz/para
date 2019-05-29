@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// --- wrapper functions for system calls that should not fail ---
+// (if a call fails the program is terminated with an error message)
+
 void eclose(int fd);                                              // wrapper around close() system call
 ssize_t ewrite(int fd,void const*buf,size_t count,int mustwrite); // write to fd with error checking
 void setfdnonblock(int fd);                                       // set fd to non blocking mode

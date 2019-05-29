@@ -4,6 +4,9 @@
 #include <stdlib.h>
 
 // --- combuf struct ---
+// (communication controll-buffer between paraloop and sub-processes)
+// (buffer is also used as elements in the input queue and output queue)
+// (combufs are moved from: 'combufpool --> inputqueue --> combuftab --> outputqueue --> combufpool --> ...')
 
 // state of combuf
 enum combuf_state{CBREAD=0,CBWRITE=1};
