@@ -1,7 +1,6 @@
 # ```para``` <sub><sup>(version 0.2)</sup></sub>
 
-```para``` is a program used for efficiently applying a function to each line in large text files and collect the resulting output.
-
+```para``` is a program for efficient parallel processing of linebased text. 
 ```para``` delegates processing of each line in a file to a user specified sub command which is managed and executed by ```para```. ```para``` collects the output from sub-commands and prints them in the same order as they occurred in the input file.
 
 # A simple example
