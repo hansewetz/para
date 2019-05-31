@@ -54,7 +54,7 @@ user    10m42.282s
 sys     29m59.132s
 ```
 
-We can also make sure that both commends generate the same output:
+To make sure ```para``` behaves correctly we'll make sure the output from the ```para``` command generates identical output as the first command executed without ```para```:
 
 ```
 $ diff out1.md5sum out2.md5sumn | wc -l
@@ -208,7 +208,7 @@ $ para -- 10 unbuffer -p gawk '{for(i=NF;i>1;i--) printf("%s ",$i); printf("%s\n
 
 # Para internals
 
-```para``` is implemented using C. The choice was done mostly for reasons of portability. An alternative (and simpler solution) would have been to code ```para``` in C++ using ```boost asio``` libraries for support. However, portability and ease of installation (avoid having correct installation of C++ support and boost libraries) won  the language battle. 
+```para``` is implemented in C. The choice was done mostly for reason of portability. An alternative (and simpler solution) would have been to use C++ together with the ```boost asio``` support libraries. However, portability and ease of installation (avoid having correct installation of C++ support and boost libraries) can quickly become complicated when involving ```C++``` and ```boost```. For a fairly simple program like ```para``` I did not seee the extra implementation effort using ```C``` as a big obstacle.
 
 ## the ```select``` call
 
