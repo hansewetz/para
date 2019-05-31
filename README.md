@@ -206,7 +206,12 @@ Running ```awk```as a sub-command presents similar buffering problems that also 
 $ para -- 10 unbuffer -p gawk '{for(i=NF;i>1;i--) printf("%s ",$i); printf("%s\n",$1)}' 
 ```
 
-# Para internals
+# Design and implementation
+NOTE! not yet done
+* draw diagram showing design
+* describe implementation
+
+## Para internals
 
 ```para``` is implemented in C. The choice was done mostly for reason of portability. An alternative (and simpler solution) would have been to use C++ together with the ```boost asio``` support libraries. However, portability and ease of installation (avoid having correct installation of C++ support and boost libraries) can quickly become complicated when involving ```C++``` and ```boost```. For a fairly simple program like ```para``` I did not seee the extra implementation effort using ```C``` as a big obstacle.
 
