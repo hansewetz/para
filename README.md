@@ -57,7 +57,7 @@ sys     29m59.132s
 To make sure ```para``` behaves correctly we'll make sure the output from the ```para``` command generates identical output as the first command executed without ```para```:
 
 ```
-$ diff out1.md5sum out2.md5sumn | wc -l
+$ diff out1.md5sum out2.md5sum | wc -l
 0
 ```
 
@@ -76,7 +76,7 @@ $ cmake -DCMAKE_INSTALL_PREFIX:PATH=<my-install-dir>  .. && make && make install
 $ export PATH=${PATH}:<my-install-dir>/bin
 ```
 
-You can now  execute:
+We can now  execute:
 
 ```$> para -- 1 cat
 $ para -- 1 cat                          # run with a single sub-process
@@ -112,6 +112,7 @@ options:
   --
   maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)
   cmd         command to execute in child processes (optional if specified as '-c' option)
+  cmdargs     arguments to 'cmd' sub-command)
 ```
 ```para``` takes a relatively small number of command line parameters. Some parameters control basic functional behavior whereas other are used for tweaking ```para``` at the technical level. Most parameters related to technical issues have reasonable default values and should not have to be specified.
 
