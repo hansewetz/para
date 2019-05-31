@@ -77,6 +77,7 @@ static char*strusage[]={
   "  --",
   "  maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)",
   "  cmd         command to execute in child processes (optional if specified as '-c' option)",
+  "  cmdargs     arguments to 'cmd' sub-command)",
   NULL
 };
 // print cmd line parameters
