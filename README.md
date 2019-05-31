@@ -117,7 +117,7 @@ options:
 
 ## timeout while waiting for sub-process
 
-After ```para``` sends a line to a sub-process it waits for a response. If the response time is longer than a specified timeout value (default is 5 5 seconds) ```para``` terminates all sub-processes with an error message and exits with a non-zero error code.
+After ```para``` sends a line to a sub-process it waits for a response. If the response time is longer than a specified timeout value (default is 5 seconds) ```para``` terminates all sub-processes with an error message and exits with a non-zero error code.
 
 For example, if we force client sub-processes to take 2 seconds to respond and while setting the ```para``` timeout to 1 second as in the following command:
 
