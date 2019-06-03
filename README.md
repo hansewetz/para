@@ -1,11 +1,11 @@
 # ```para``` <sub><sup>(version 0.2)</sup></sub>
 
 ```para``` is a program for efficient parallel processing of linebased text. 
-```para``` delegates processing of each line in a file to a user specified sub command which is managed and executed by ```para```. ```para``` collects the output from sub-commands and prints them in the same order as they occurred in the input file.
+```para``` delegates processing of each line in a file to a user specified sub command which is managed and executed by ```para```. ```para``` collects the output from sub-commands and prints it in the same order had the text been processed serially from the input file.
 
 # A simple example
 
-Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```. Without thinking too much about efficiency we type up the following script:
+Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```:
 
 ```
 #!/bin/bash
@@ -20,7 +20,7 @@ The following command:
 $ echo hello | ./md5.bash
 ```
 
-then generates the output:
+will print:
 
 ```
 b1946ac92492d2347c6235b4d2611184
