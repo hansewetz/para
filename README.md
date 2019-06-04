@@ -3,6 +3,27 @@
 ```para``` is a program for efficient parallel processing of linebased text. 
 ```para``` delegates processing of each line in a file to a user specified sub command which is managed and executed by ```para```. ```para``` collects the output from sub-commands and prints it in the same order had the text been processed serially from the input file.
 
+# Installing ```para```
+
+Install ```para``` by following the steps:
+```
+$ mkdir para && cd para
+$ git clone https://github.com/hansewetz/para.git .
+$ mkdir build && cd build
+$ cmake -DCMAKE_INSTALL_PREFIX:PATH=<my-install-dir>  .. && make && make install
+$ export PATH=${PATH}:<my-install-dir>/bin
+```
+
+We can now  execute:
+
+```$> para -- 1 cat
+$ para -- 1 cat                          # run with a single sub-process
+Hello                                    # your text
+Hello                                    # echoed by para
+info: timer popped, type: HEARTBEAT      # default heartbeat is every 5 sec
+info: timer popped, type: HEARTBEAT      # ...
+^D                                       # stop with ^D
+```
 # A simple example
 
 Say we want to calculate the ```md5sum``` for each line in a file using a script stored in ```md5.bash```:
@@ -64,28 +85,6 @@ $ diff out1.md5sum out2.md5sum | wc -l
 In our example ```para``` starts 5 sub processes running the ```md5.bash``` command. 
 
 We can see that the speedup is approximately 5 times. Linear speedup is not always possible though. When the sub-command does not do much heavy calculations the overhead of ```para``` takes over and the ```para``` solution might perform worse.
-
-# Installing ```para```
-
-Install ```para``` by following the steps:
-```
-$ mkdir para && cd para
-$ git clone https://github.com/hansewetz/para.git .
-$ mkdir build && cd build
-$ cmake -DCMAKE_INSTALL_PREFIX:PATH=<my-install-dir>  .. && make && make install
-$ export PATH=${PATH}:<my-install-dir>/bin
-```
-
-We can now  execute:
-
-```$> para -- 1 cat
-$ para -- 1 cat                          # run with a single sub-process
-Hello                                    # your text
-Hello                                    # echoed by para
-info: timer popped, type: HEARTBEAT      # default heartbeat is every 5 sec
-info: timer popped, type: HEARTBEAT      # ...
-^D                                       # stop with ^D
-```
 
 # ```para``` command line parameters
 
