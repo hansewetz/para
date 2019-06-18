@@ -50,7 +50,7 @@ b1946ac92492d2347c6235b4d2611184
 Now lets calculate the ```md5sum``` for each line in a medium size file having around 500K lines:
 
 ```
-$ time zcat | monolingual.en.gz | ./md5.bash > out1.md5sum
+$ time zcat monolingual.en.gz | ./md5.bash > out1.md5sum
 ```
 
 The execution time is slightly more than 20 minutes:
@@ -64,7 +64,7 @@ sys     28m48.447s
 Now we'll use ```para``` to speed up the processing:
 
 ```
-$ time zcat | monolingual.en.gz | para -- 5 ./md5.bash > out2.md5sum
+$ time zcat monolingual.en.gz | para -- 5 ./md5.bash > out2.md5sum
 ```
 
 The processing time is now:
