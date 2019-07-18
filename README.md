@@ -170,7 +170,7 @@ By default the output queue is extended automatically by the increment specified
 
 # Running sub-commands that buffer data
 
-Sub-commands that buffers input and/or output presents a problem to ```para```. This because ```para``` operates on a line by line basis and processing of a line to occur as soon as the line has been sent to the sub-command. Additionally ```para``` expects the result to be sent back without and delayed buffering. 
+Sub-commands that buffers input and/or output presents a problem to ```para```. This because ```para``` operates on a line by line basis waiting for a response from a sub-process before it will send a new request to the sub-process. A sub-process buffering output will effectivly block ```para``` from feeding sub-processes with new requests. 
 
 This section will show you have to manage ```sed```, ```awk``` and other programs that buffer data.
 
