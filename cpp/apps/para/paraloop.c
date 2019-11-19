@@ -258,8 +258,10 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   // we can do a final commit at this point
   // (txn will flush output file before committing)
   handle_txn(txncommitnlines,lasttxnlog,nexttxnlog,1,txn);
-  txn_setKeeplog(txn,0);               // make sure transaction log is removed in tx destructor
-  txn_dtor(txn);                       // destroy transaction object
+  if(txn){                             // only if we have a transaction ...
+    txn_setKeeplog(txn,0);             // make sure transaction log is removed in tx destructor
+    txn_dtor(txn);                     // destroy transaction object
+  }
   txnlog_dtor(lasttxnlog);             // destroy transaction log object
   txnlog_dtor(nexttxnlog);             // destroy transaction log object
 
