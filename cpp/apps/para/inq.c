@@ -52,6 +52,18 @@ void inq_pop(struct inq_t*q){
   cb->next_=NULL;
   --q->size_;
 }
+// pop first N complete lines in queue
+int inq_popnlines(struct inq_t*q,int n){
+  int ret=0;
+  while(n>0&&inq_size(q)>0){
+    struct combuf*cb=inq_front(q);
+    if(!combuf_rdcomplete(cb))break;
+    inq_pop(q);
+    --n;
+    ++ret;
+  }
+  return ret;
+}
 // next line number
 int inq_nextlineno(struct inq_t*q){
   return q->nextlineno_;

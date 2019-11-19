@@ -158,3 +158,19 @@ int eopen(char const*path,int oflag,mode_t mode){
   if(stat<0)app_message(FATAL,",failed opening file: %s, errno: %d, errstr: %s",path,errno,strerror(errno));
   return stat;
 }
+// sync fd to disk
+void efsync(int fd){
+  int stat=fsync(fd);
+  if(stat<0)app_message(FATAL,"failed syncing file descriptor (fsync), errno: %d, errstr: %s",errno,strerror(errno));
+}
+// seek in file
+size_t elseek(int fd,size_t offset,int whence){
+  int stat=lseek(fd,offset,whence);
+  if(stat<0)app_message(FATAL,"failed lseek, errno: %d, errstr: %s",errno,strerror(errno));
+  return stat;
+}
+// unlink a file
+void eunlink(const char *path){
+  int stat=unlink(path);
+  if(stat<0)app_message(FATAL,"failed unlink, errno: %d, errstr: %s",errno,strerror(errno));
+}

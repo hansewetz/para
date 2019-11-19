@@ -58,6 +58,10 @@ char*buf_bufrd(struct buf_t*buf){
 char*buf_bufwr(struct buf_t*buf){
   return &buf->buf_[buf->ind_];
 }
+// get #of characters in buffer
+size_t buf_size(struct buf_t*buf){
+  return buf->nbuf_;
+}
 // return #of bytes free in buffer
 size_t buf_nfree(struct buf_t*buf){
   return buf->maxbuf_-buf->nbuf_;

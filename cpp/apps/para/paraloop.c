@@ -13,6 +13,7 @@
 #include "outq.h"
 #include "inq.h"
 #include "sys.h"
+#include "txn.h"
 #include "util.h"
 #include <stdio.h>
 #include <errno.h>
@@ -20,14 +21,17 @@
 #include <string.h>
 #include <sys/select.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 // helper methods
 static int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool);                         // read lines from input
-static int flushoutq(struct outq_t*qout,struct combufpool*cbpool);                                               // flush output queue
+static int flushoutq(struct outq_t*qout,struct combufpool*cbpool,struct txnlog_t*nexttxnlog);                    // flush output queue
 static void inq2cbtab(struct inq_t*qin,struct combuf*cb,fd_set*wrall_set,struct combufpool*cbpool);              // transfer data from inq to child process write buffer
 static int cbtabread(struct combuf*cb,fd_set*rdall_set,fd_set*fdrd);                                             // read data into sub process buffer
 static int cbtabwrite(struct combuf*cb,fd_set*rdall_set,fd_set*wrall_set,fd_set*wrset,struct combufpool*cbpool); // write data in sub process buffer
 static void cbtab2outq(struct outq_t*qout,struct combuf*cb,fd_set*wrall_set,struct combufpool*cbpool,FILE*fpout);// copy sub process buffer to output queue
+static void handle_txn(size_t txncommitnlines,struct txnlog_t*lasttxnlog,struct txnlog_t*nexttxnlog,int forcecommit,struct txn_t*txn); // commit transaction if needed
 
 // handle SIGCHLD signal
 static int childExited=0;
@@ -44,11 +48,35 @@ void sigchldHandler(int signo){
 }
 // select loop
 // (this is the main loop in the para program)
-void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t outqinc,size_t maxbuf,int startlineno,int fdin,int fdout){
+void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t outqinc,size_t maxbuf,int startlineno,int fdin,int fdout,size_t txncommitnlines,char const*txnlogfile,int recoveryenabled,int outIsPositionable){
   // set input and output to non-blocking
   setfdnonblock(fdin);
   setfdnonblock(fdout);
 
+  // if recovery is enabled then retrieve #of lins that were committed
+  // (note: we can do recovery even if we won't execute in transactional mode)
+  int skipnfirstlines=0;                            // #of lines to skip when starting
+  int skipoutputpos=0;                              // skip to filepos in output file
+  if(recoveryenabled){
+    struct txn_t*rtxn=txn_ctor(-1,txnlogfile);      // create a transaction for recovery, we won't use output fd in transaction
+    struct txnlog_t*rtxnlog=txn_recover(rtxn);      // retrieve recovered txn log
+    if(rtxnlog!=0){
+      skipnfirstlines=txnlog_nlines(rtxnlog);       // #of lines to skip
+      skipoutputpos=txnlog_outfilepos(rtxnlog);     // file position in output file
+      txn_setKeeplog(rtxn,1);                       // destroy temporary transaction but don't touch transaction log
+      txn_dtor(rtxn);                               // ...
+    }
+  }
+  if(recoveryenabled){
+    app_message(INFO,"skipping first: %d lines in recovery mode, outfilepos: %lu ...",skipnfirstlines,skipoutputpos);
+
+    // if we can position within output then go ahead and do it
+    if(outIsPositionable){
+      app_message(INFO,"positioning to offset: %lu in output stream",skipoutputpos);
+      int stat=lseek(fdout,skipoutputpos,SEEK_SET);
+      if(stat<0)app_message(FATAL,"failed moving position in output file during recovery to offset: %lu",skipoutputpos);
+    }
+  }
   // setup fd sets for select()
   fd_set rdall_set,wrall_set;                       // read set for input adn write for output
   FD_ZERO(&rdall_set);                              // clear all in both sets
@@ -69,12 +97,18 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   // setup output queue
   // (output queue is a priority queue with lowest line number at front)
   int outputeof=0;
-  struct outq_t*qout=outq_ctor(maxoutq,outqinc,startlineno);
+  struct outq_t*qout=outq_ctor(maxoutq,outqinc,startlineno+skipnfirstlines);
 
   // setup a pool of free combuf objects
   // (combufpool is a free pool of combuffers)
   size_t cbpool_init_size=1+maxoutq+2*nsubprocesses;                  // #of combufs = maxoutq + maxinq + nsubprocesses+spare(inqread())
   struct combufpool*cbpool=combufpool_ctor(cbpool_init_size,CBWRITE,maxbuf);
+
+  // track positional info in order to handle commits
+  struct txnlog_t*lasttxnlog=txnlog_ctor(skipnfirstlines,skipoutputpos);
+  struct txnlog_t*nexttxnlog=txnlog_ctor(skipnfirstlines,skipoutputpos);
+  struct txn_t*txn=0;                                                 // transaction
+  if(txncommitnlines>0)txn=txn_ctor(fdout,txnlogfile);                // check if we need to configure transaction
 
   // setup signal handler for SIGCHLD
   struct sigaction sigact;                                            // setup signal handler for SIGCHLD
@@ -154,6 +188,10 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
     if(FD_ISSET(fdin,&rdset)){
       if(!inputeof)inputeof=readinq(qin,fd2fpmap[fdin],nsubprocesses,cbpool);
     }
+    // (1.5) if we 'skipnfirstlines>0 remove 'skipnfirstlines' from input queue
+    if(skipnfirstlines>0){
+      skipnfirstlines-=inq_popnlines(qin,skipnfirstlines);
+    }
     // (2) copy data from input queue into sub-process buffer
     for(size_t i=0;i<nsubprocesses;++i){
       struct combuf*cb=combuftab_at(cbtab,i);                    // get combuf for sub-process and check if we can write data to it
@@ -191,8 +229,11 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
     }
     // (6) flush output queue (select() triggered on output fd)
     if(FD_ISSET(fdout,&wrset)){
-      if(!outputeof)outputeof=flushoutq(qout,cbpool);
+      if(!outputeof)outputeof=flushoutq(qout,cbpool,nexttxnlog);
     }
+    // handle transactional stuff
+    handle_txn(txncommitnlines,lasttxnlog,nexttxnlog,0,txn);
+
     // trigger on input in select()?
     // (do not trigger if eof, trigger if there is partially read data or, if we have fewer than 'nsubprocesses' lines in input queue)
     if(!inputeof&&(inq_partialrd(qin)||inq_size(qin)<nsubprocesses)){
@@ -202,6 +243,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
       FD_CLR(fdin,&rdall_set);
     }
     // trigger on output in select()?
+//fprintf(stderr,"==== outq_ready(qout): %d\n",outq_ready(qout));
     if(outq_ready(qout)){
       FD_SET(fdout,&wrall_set);
     }
@@ -214,6 +256,14 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
     }
   }
   app_message(DEBUG,"#timers in queue: %d (expected: 1 HEARTBEAT timer)",qtmo->nel_);
+
+  // we can do a final commit at this point
+  // (txn will flush output file before committing)
+  handle_txn(txncommitnlines,lasttxnlog,nexttxnlog,1,txn);
+  txn_setKeeplog(txn,0);               // make sure transaction log is removed in tx destructor
+  txn_dtor(txn);                       // destroy transaction object
+  txnlog_dtor(lasttxnlog);             // destroy transaction log object
+  txnlog_dtor(nexttxnlog);             // destroy transaction log object
 
   // close all FILE* in fd2fpmap
   app_message(DEBUG,"closing files ...");
@@ -240,7 +290,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   app_message(DEBUG,"... cleanup done");
 }
 // read a line from input and store in input queue
-// (we must know we can read since if we read 0 bytes we'll interpret it as if we rteached eof)
+// (we must know we can read since if we read 0 bytes we'll interpret it as if we reached eof)
 // (returns 1 if eof reached, else false)
 int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool){
   int firsttime=1;
@@ -265,11 +315,11 @@ int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool)
     firsttime=0;
   }
   if(!combuf_empty(cbin)&&combuf_eof(cbin)&&!combuf_rdcomplete(cbin)){ // if we reached eof with a non-empty buffer that is not complete we have an error
-    app_message(FATAL,"reached input EOF before readiung a complete line from input");
+    app_message(FATAL,"reached input EOF before reading a complete line from input");
   }
   if(combuf_empty(cbin)){
     if(isfreebuf){
-      combufpool_putback(cbpool,cbin);                          // if we didn't read anything putback buffer in free pool
+      combufpool_putback(cbpool,cbin);                          // if we didn't read anything - putback buffer in free pool
     }
   }else{
     if(isfreebuf)inq_push(qin,cbin);                            // add buffer to inq if we have data in buffer
@@ -277,9 +327,9 @@ int readinq(struct inq_t*qin,FILE*fpin,size_t maxlines,struct combufpool*cbpool)
   return combuf_eof(cbin);
 }
 // flush output queue as much as we can
-// (we stop when outq is closed (eof), qout is empty or we cannot write more data to output
+// (we stop when qout is closed (eof), qout is empty or we cannot write more data to output
 // (returns 1 if eof reached, else false)
-int flushoutq(struct outq_t*qout,struct combufpool*cbpool){
+int flushoutq(struct outq_t*qout,struct combufpool*cbpool,struct txnlog_t*nexttxnlog){
   int firsttime=1;                                           // must track if first time, since writing 0 bytes first time means eof
   while(outq_ready(qout)){                                   // as long as we have a buffer with right line number ...
     struct combuf*cbout=outq_front(qout);                    // get top of queue (we'll only have one entry in queue for right now)
@@ -288,6 +338,8 @@ int flushoutq(struct outq_t*qout,struct combufpool*cbpool){
     if(combuf_wrcomplete(cbout)){                            // if buffer is completly written pop it from queue
       outq_pop(qout);                                        // ...
       combufpool_putback(cbpool,cbout);                      // ...
+      ++nexttxnlog->nlines_;                                 // increment #of full lines written
+      nexttxnlog->outfilepos_+=buf_size(combuf_buf(cbout));  // increment variable tracking position in output file
     }
     if(combuf_eof(cbout))return 1;                           // only the flag eof only if this is the first timeiun the loop since the first time we MUST be able tro write
     if(nwritten==0)break;                                    // done - nothing written (we must be second or third ... time around
@@ -337,4 +389,15 @@ void cbtab2outq(struct outq_t*qout,struct combuf*cb,fd_set*wrall_set,struct comb
   combuf_swaprd4wr(cb,cbout);                               // swap child process read buffer with buffer to be added to output queue
   outq_push(qout,cbout);                                    // push it on output queue
   combuf_clear4wr(cb);                                      // clear child process buffer so we can write to it
+}
+// commit transaction
+static void handle_txn(size_t txncommitnlines,struct txnlog_t*lasttxnlog,struct txnlog_t*nexttxnlog,int forcecommit,struct txn_t*txn){
+  if(!txn)return;                                                                 // check if txn is enabled
+  if(txnlog_nlines(lasttxnlog)==txnlog_nlines(nexttxnlog))return;                 // no need to commit if we committed at this point earlier
+  if(forcecommit||(nexttxnlog->nlines_%txncommitnlines)==0){                      // commit if forced or if we reached commit point
+    app_message(INFO,"committing at %lu lines ...",nexttxnlog->nlines_);          // log ...
+    txn_commit(txn,nexttxnlog);                                                   // commit 'outlines' #of lines
+    lasttxnlog->nlines_=txnlog_nlines(nexttxnlog);                                // update 'lasttxnlog' object
+    lasttxnlog->outfilepos_=txnlog_outfilepos(nexttxnlog);                        // ...
+  }
 }

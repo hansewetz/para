@@ -53,7 +53,13 @@ static int startlineno=0;                          // line number for first line
 static char*cmd=NULL;                              // command to execute in child processes
 static char*inputfile=NULL;                        // inputfile, if NULL the <stdin>
 static char*outputfile=NULL;                       // outputfile, if NULL the <stdout>
+static size_t txncommitnlines=0;                   // commit every 'txncommitnlines' - if 0, no commits are executed
 static char*cargv[ARG_MAX+1];                      // command line arguments for child processes
+
+// other global variable
+static char*txnlog=".para.txnlog";                 // default name of transaction lg
+static size_t txnenabled=0;                        // transactional mode enabled
+static size_t recoveryenabled=0;                   // recovery mode enabled
 
 // usage strings
 static char*strusage[]={
@@ -65,6 +71,7 @@ static char*strusage[]={
   "  -p          print cmd line parameters (default: not set)",
   "  -v          verbose mode (maximum debug level, default: not set)",
   "  -V          print version number (optional, default: not set)",
+  "  -R          execute in recovery mode (default: no recovery is performed , optional)",
   "  -b arg      maximum length in bytes of a line (optional, default: 4096)",
   "  -T arg      timeout in seconds waiting for response from a sub-process (default 5)",
   "  -H arg      heartbeat in seconds (optional, default: 5)",
@@ -74,6 +81,7 @@ static char*strusage[]={
   "  -c arg      command to execute in child process (optional if specified as positional parameter)",
   "  -i arg      input file (default is standard input, optional)",
   "  -o arg      output file (default is standard output, optional)",
+  "  -C arg      execute in transactional mode with #of lines per commit (default: no commits are performed , optional)",
   "  --",
   "  maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)",
   "  cmd         command to execute in child processes (optional if specified as '-c' option)",
@@ -86,6 +94,7 @@ void printcmds(){
   fprintf(stderr,"-p: %s\n",bool2str(print));
   fprintf(stderr,"-v: %s\n",bool2str(verbose));
   fprintf(stderr,"-V: %s\n",bool2str(version));
+  fprintf(stderr,"-R: %s\n",bool2str(recoveryenabled));
   fprintf(stderr,"-b: %lu\n",maxbuf);
   fprintf(stderr,"-T: %lu\n",clientsec);
   fprintf(stderr,"-H: %lu\n",heartsec);
@@ -95,6 +104,7 @@ void printcmds(){
   fprintf(stderr,"-c: %s\n",cmd);
   fprintf(stderr,"-i: %s\n",inputfile?inputfile:"<stdin>");
   fprintf(stderr,"-o: %s\n",outputfile?outputfile:"<stdout>");
+  fprintf(stderr,"-C: %lu\n",txncommitnlines);
   fprintf(stderr,"----------------------------\n");
 }
 // print version
@@ -117,7 +127,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvVT:H:b:m:M:x:c:i:o:"))!=-1){                                 // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVRC:T:H:b:m:M:x:c:i:o:"))!=-1){ // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
@@ -130,17 +140,25 @@ int main(int argc,char**argv){
     case 'V':
       version=1;
       break;
+    case 'R':
+      recoveryenabled=1;
+      break;
     case 'b':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-b' option, must be a positive number",optarg);
       if((maxbuf=atol(optarg))<2)usage("parameter to '-b' must be a positive number greater than two (2)");
       break;
+    case 'C':
+      if(!isposnumber(optarg))usage("invalid parameter '%s' to '-C' option, must be a positive number",optarg);
+      if((txncommitnlines=atol(optarg))<1)usage("parameter to '-C' must be a positive number greater or equal to than zero");
+      txnenabled=1;
+      break;
     case 'T':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-T' option, must be a positive number",optarg);
-      if((clientsec=atol(optarg))<1)usage("parameter to '-h' must be a positive number greater than zero");
+      if((clientsec=atol(optarg))<1)usage("parameter to '-T' must be a positive number greater than zero");
       break;
     case 'H':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-H' option, must be a positive number",optarg);
-      if((heartsec=atol(optarg))<1)usage("parameter to '-h' must be a positive number greater than zero");
+      if((heartsec=atol(optarg))<1)usage("parameter to '-H' must be a positive number greater than zero");
       break;
     case 'm':
       if(!isposnumber(optarg))usage("invalid parameter '%s' to '-m' option, must be a positive number",optarg);
@@ -194,12 +212,23 @@ int main(int argc,char**argv){
   if(verbose)loglevel(DEBUG);                                                  // set debug level
   if(print)printcmds();                                                        // print cmd linet parameters if needed
 
-  // check if we need to open input/output files
+  // open input file if needed
   int fdin=STDIN_FILENO;                                                       // input and output fds
   int fdout=STDOUT_FILENO;                                                     // ...
   if(inputfile)fdin=eopen(inputfile,O_RDONLY,0777);                            // open input file for reading
-  if(outputfile)fdout=eopen(outputfile,O_WRONLY|O_CREAT|O_TRUNC,0777);         // open output file for writing
 
+  // open output differently depending on how recovery flag is set and if transaction log exists
+  if(outputfile){                                                              // if output file is specified then open it with correct parameters
+    int txnlogexists=0;                                                        // flag set to true of transactio log exist 
+    if(access(txnlog,R_OK)==0)txnlogexists=1;                                  // check if transaction log exists and can be access in read mode
+    int oflags=O_WRONLY;                                                       // open outfile in write only mode
+    if(recoveryenabled&&txnlogexists){                                         // we'll try to recover
+      // no extra flags to set since we'll do an lseek(...) in the file        // append to output file
+    }else{                                                                     // no recovery
+      oflags|=O_CREAT|O_TRUNC;                                                 // truncate outfile if no recovery
+    }                                                                          // ...
+    if(outputfile)fdout=eopen(outputfile,oflags,0777);                         // open output file for writing
+  }
   // kickoff select() loop
-  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,incoutq,maxbuf,startlineno,fdin,fdout);
+  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,incoutq,maxbuf,startlineno,fdin,fdout,txncommitnlines,txnlog,recoveryenabled,outputfile!=0);
 }
