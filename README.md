@@ -252,7 +252,7 @@ and ```exe.bash```:
 
 ```#!/bin/bash
 while read line; do
-  echo $line #| md5sum | awk '{print $1}'
+  echo $line 
   sleep 1
 done
 ```
