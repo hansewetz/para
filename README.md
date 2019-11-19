@@ -100,6 +100,7 @@ options:
   -p          print cmd line parameters (default: not set)
   -v          verbose mode (maximum debug level, default: not set)
   -V          print version number (optional, default: not set)
+  -R          execute in recovery mode (default: no recovery is performed , optional)
   -b arg      maximum length in bytes of a line (optional, default: 4096)
   -T arg      timeout in seconds waiting for response from a sub-process (default 5)
   -H arg      heartbeat in seconds (optional, default: 5)
@@ -109,6 +110,7 @@ options:
   -c arg      command to execute in child process (optional if specified as positional parameter)
   -i arg      input file (default is standard input, optional)
   -o arg      output file (default is standard output, optional)
+  -C arg      execute in transactional mode with #of lines per commit (default: no commits are performed , optional)
   --
   maxclients  #of child processes to spawn (optional if specified as command line parameter, default: 1)
   cmd         command to execute in child processes (optional if specified as '-c' option)
@@ -169,6 +171,7 @@ If a single specific line in the input file takes a long time to be processed by
 
 By default the output queue is extended automatically by the increment specified by the ```-x``` command line parameter (default value: 1000). If ```-x``` specifies an increment of ```0``` the queue will not be extended and ```para``` will terminate when the output queue is full.
 
+
 # Running sub-commands that buffer data
 
 Sub-commands that buffers input and/or output presents a problem to ```para```. This because ```para``` operates on a line by line basis and processing of a line to occur as soon as the line has been sent to the sub-command. Additionally ```para``` expects the result to be sent back without and delayed buffering. 
@@ -206,6 +209,128 @@ Running ```awk```as a sub-command presents similar buffering problems that also 
 ```
 $ para -- 10 unbuffer -p gawk '{for(i=NF;i>1;i--) printf("%s ",$i); printf("%s\n",$1)}' 
 ```
+
+# Running in transactional mode
+When running ```para``` on very large input files, say ```100M``` lines or larger where each line takes a non-negligible time to process, it can be painful to crash somewhere in the middle and have to start over from scratch.
+
+## introduction
+
+```para```'s transactional feature allows a processing to restart from a well defined point in the processing. For example, when starting ```para``` it is possible to specify that the state of the processing should be saved (i.e. committed) every N (say 1000) lines. At a commit point ```para``` atomically saves two values in a transactional log:
+
+* #of input lines that have been written to the output file
+
+* position in the output file
+
+When ```para``` is restarted in recovery mode it reads the transactional log (default: ```.para.txnlog```). ```para``` then skips the first N lines in the input stream and position itself in the output stream (if the output is a file) before starting to process lines from the input. When it is not possible to position in the output stream ```para``` ignores the output file position from the commit log.
+
+If ```para``` is started in recovery mode when there is no transactional log ```para``` will simply ignore that recovery has been specified. Therefore, it is possible to always run ```para``` in recovery mode.
+
+## why transactions
+
+Would it not be simpler to just scan the output file for the last newline and use that as the 'commit' point? I can see two reasons fro not doing this:
+
+* in general we cannot re-run the ```para``` processing from scratch and reliably reproduce exactly the same result. Say we crash at some point after line 53 has been written to the output file due to processing of input line 61. Next time we run ```para``` we will still crash while processing line 61. However this time we might have written line 56 to the output file. This means that in the first case had we restarted in recovery mode we would start at line 54 whereas in the second case we would start at line 57.
+* unless we ```fflush``` after each line written to the output file (which would be very expensive) I cannot see that there is a guarantee that  there might not be holes in the file on disk. That is, it is possible (unless I'm mistaken) that the kernel might not have flushed some buffers that correspond to the output file that are 'in the middle' of the file. I have not seen any documentation that the kernel guarantees that kernel buffers are always flushed sequentially from low positions in the file to high positions in the file. 
+
+On the second point, clearly I might be incorrect ... if so, please correct me.
+
+However, the first point is enough reason for me to use a transactional approach.
+
+## an example:
+
+Say we have ```input.txt```:
+
+```1
+1
+2
+3
+4
+5
+```
+
+and ```exe.bash```:
+
+```#!/bin/bash
+while read line; do
+  echo $line #| md5sum | awk '{print $1}'
+  sleep 1
+done
+```
+
+and we execute (```-R``` is recovery and ```-C 2``` enables transactions every 2 lines):
+
+```
+$>para para -v -i input.txt -o output.out -R -C 2  -- 1 ./exe.bash
+```
+
+the ```output.txt``` is then:
+
+```1
+1
+2
+3
+4
+5
+```
+
+Now, if we execute the same command but hit ```^C``` after seeing the message:
+
+```info: committing at 2 lines...```
+
+The output is now:
+
+```
+1
+2
+```
+
+or possibly:
+
+```
+1
+2
+3
+```
+
+and the file:
+
+```.para.txnlog```
+
+contains (using ```od -x para.txnlog```):
+
+```
+0000000 0002 0000 0000 0000 0004 0000 0000 0000
+0000020
+```
+
+Now we can restart ```para```:
+
+```$>para para -v -i input.txt -o output.out -R -C 2  -- 1 ./exe.bash```
+
+```para``` now writes:
+
+```
+info: skipping first: 2 lines in recovery mode, outfilepos: 4 ...
+info: positioning to offset: 4 in output stream
+info: committing at 4 lines ...
+debug: #timers in queue: 1 (expected: 1 HEARTBEAT timer)
+info: committing at 5 lines ...
+debug: closing files ...
+debug: waiting for child processes ...
+debug: cleaning up memory ...
+debug: ... cleanup done
+```
+
+We see that ```para``` skips 2 lines in the input file and positions at file position 4 in th output file before starting to process. The output file is now:
+
+```
+1
+2
+3
+4
+5
+```
+
 
 # Design and implementation
 NOTE! not yet done

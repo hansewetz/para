@@ -71,7 +71,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
     app_message(INFO,"skipping first: %d lines in recovery mode, outfilepos: %lu ...",skipnfirstlines,skipoutputpos);
 
     // if we can position within output then go ahead and do it
-    if(outIsPositionable){
+    if(outIsPositionable&&skipoutputpos>0){
       app_message(INFO,"positioning to offset: %lu in output stream",skipoutputpos);
       int stat=lseek(fdout,skipoutputpos,SEEK_SET);
       if(stat<0)app_message(FATAL,"failed moving position in output file during recovery to offset: %lu",skipoutputpos);
