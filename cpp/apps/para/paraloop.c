@@ -396,7 +396,7 @@ static void handle_txn(size_t txncommitnlines,struct txnlog_t*lasttxnlog,struct 
   if(forcecommit||(nexttxnlog->nlines_%txncommitnlines)==0){                      // commit if forced or if we reached commit point
     txn_commit(txn,nexttxnlog);                                                   // commit 'outlines' #of lines
     app_message(INFO,"committed at %lu lines ...",nexttxnlog->nlines_);           // log so we know at what line we committed
-    lasttxnlog->nlines_=txnlog_nlines(nexttxnlog);                                // update 'lasttxnlog' object
-    lasttxnlog->outfilepos_=txnlog_outfilepos(nexttxnlog);                        // ...
+    txnlog_setnlines(lasttxnlog,txnlog_nlines(nexttxnlog));                       // update 'lasttxnlog' object
+    txnlog_setoutfilepos(lasttxnlog,txnlog_outfilepos(nexttxnlog));               // ...
   }
 }

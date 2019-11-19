@@ -25,6 +25,10 @@ void txnlog_dtor(struct txnlog_t*txnlog){
 size_t txnlog_nlines(struct txnlog_t*txnlog){return txnlog->nlines_;}
 size_t txnlog_outfilepos(struct txnlog_t*txnlog){return txnlog->outfilepos_;}
 
+// setters
+void txnlog_setnlines(struct txnlog_t*txnlog,size_t nlines){txnlog->nlines_=nlines;}
+void txnlog_setoutfilepos(struct txnlog_t*txnlog,size_t outfilepos){txnlog->outfilepos_=outfilepos;}
+
 // debug print function for transaction log
 void txnlog_dump(struct txnlog_t*txnlog,FILE*fp,int nl){
   fprintf(fp,"nlines: %lu, outfilepos: %lu",txnlog->nlines_,txnlog->outfilepos_);
@@ -70,9 +74,9 @@ void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
   if(stat1<0)app_message(FATAL,"write to temporary transaction log failed (outfilepos), errno: %d, errstr: %s",errno,strerror(errno));
 
   // sync and commit
-  efsync(fdtmplog);                                                                      // sync log to disk
-  eclose(fdtmplog);                                                                      // close temp txn log
-  int stat2=rename(txn->txnlogfile_,txn->txnlogfile_);                                // atomically rename temporary transaction log to the real transaction log
+  efsync(fdtmplog);                                    // sync log to disk
+  eclose(fdtmplog);                                    // close temp txn log
+  int stat2=rename(txn->txnlogfile_,txn->txnlogfile_); // ATOMICALLY rename temporary transaction log to the real transaction log
   if(stat2<0)app_message(FATAL,"rename of temporary transcation log failed, errno: %d, errstr: %s",errno,strerror(errno));
 }
 // recover transaction

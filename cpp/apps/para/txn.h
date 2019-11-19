@@ -16,6 +16,8 @@ void txnlog_dtor(struct txnlog_t*txnlog);                           // transacti
 // methods
 size_t txnlog_nlines(struct txnlog_t*txnlog);                       // getter
 size_t txnlog_outfilepos(struct txnlog_t*txnlog);                   // ...
+void txnlog_setnlines(struct txnlog_t*txnlog,size_t nlines);        // setter
+void txnlog_setoutfilepos(struct txnlog_t*txnlog,size_t outfilepos);// setter
 void txnlog_dump(struct txnlog_t*txn,FILE*fp,int nl);               // print transaction log information
 
 // transaction class
