@@ -100,6 +100,7 @@ options:
   -p          print cmd line parameters (default: not set)
   -v          verbose mode (maximum debug level, default: not set)
   -V          print version number (optional, default: not set)
+  -r          print recovery info - if any - and exit
   -R          execute in recovery mode (default: no recovery is performed , optional)
   -b arg      maximum length in bytes of a line (optional, default: 4096)
   -T arg      timeout in seconds waiting for response from a sub-process (default 5)
@@ -296,12 +297,22 @@ and the file:
 
 ```.para.txnlog```
 
-contains (using ```od -x para.txnlog```):
+contains (using ```od -x .para.txnlog```):
 
 ```
 0000000 0002 0000 0000 0000 0004 0000 0000 0000
 0000020
 ```
+
+We can view the transaction log by executing:
+
+```$>para -r
+$para -r
+```
+
+```para``` informs that 2 lines were committed and output in recovery mode starts at position 4 in the output file:
+
+```recovery info --> #lines-committed: 2, outfile-pos: 4```
 
 Now we can restart ```para```:
 
@@ -321,7 +332,7 @@ debug: cleaning up memory ...
 debug: ... cleanup done
 ```
 
-We see that ```para``` skips 2 lines in the input file and positions at file position 4 in th output file before starting to process. The output file is now:
+We see that ```para``` skips 2 lines in the input file and positions at file position 4 in the output file before starting to process. The output file is now:
 
 ```
 1

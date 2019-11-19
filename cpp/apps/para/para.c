@@ -43,6 +43,7 @@
 static int print=0;                                // print cmd line parameters (default false)
 static int verbose=0;                              // verbose level (maximum debug level on)
 static int version=0;                              // print version number and exit (default false)
+static int printrecoveryinfo=0;                    // print recovery info
 static size_t maxclients=1;                        // #of child processes
 static size_t clientsec=5;                         // client tmo in seconds
 static size_t heartsec=5;                          // heart beat timer sec
@@ -71,6 +72,7 @@ static char*strusage[]={
   "  -p          print cmd line parameters (default: not set)",
   "  -v          verbose mode (maximum debug level, default: not set)",
   "  -V          print version number (optional, default: not set)",
+  "  -r          print recovery info - if any - and exit",
   "  -R          execute in recovery mode (default: no recovery is performed , optional)",
   "  -b arg      maximum length in bytes of a line (optional, default: 4096)",
   "  -T arg      timeout in seconds waiting for response from a sub-process (default 5)",
@@ -94,6 +96,7 @@ void printcmds(){
   fprintf(stderr,"-p: %s\n",bool2str(print));
   fprintf(stderr,"-v: %s\n",bool2str(verbose));
   fprintf(stderr,"-V: %s\n",bool2str(version));
+  fprintf(stderr,"-r: %s\n",bool2str(printrecoveryinfo));
   fprintf(stderr,"-R: %s\n",bool2str(recoveryenabled));
   fprintf(stderr,"-b: %lu\n",maxbuf);
   fprintf(stderr,"-T: %lu\n",clientsec);
@@ -127,7 +130,7 @@ void usage(char const*msg,...){
 // main test program
 int main(int argc,char**argv){
   int opt;
-  while((opt=getopt(argc,argv,"hpvVRC:T:H:b:m:M:x:c:i:o:"))!=-1){ // get non-positional command line parameters
+  while((opt=getopt(argc,argv,"hpvVrRC:T:H:b:m:M:x:c:i:o:"))!=-1){ // get non-positional command line parameters
     switch(opt){
     case 'h':
       usage("");
@@ -139,6 +142,9 @@ int main(int argc,char**argv){
       break;
     case 'V':
       version=1;
+      break;
+    case 'r':
+      printrecoveryinfo=1;
       break;
     case 'R':
       recoveryenabled=1;
@@ -186,6 +192,13 @@ int main(int argc,char**argv){
     }
   }
   if(version)printversion();                                                   // print version of para if requested
+  if(printrecoveryinfo){                                                       // check if we should print recovery info
+    size_t skipnfirstlines=0;
+    size_t skipoutputpos=0;
+    recoveryinfo(txnlog,&skipnfirstlines,&skipoutputpos);
+    fprintf(stderr,"recovery info --> #lines-committed: %lu, outfile-pos: %lu\n",skipnfirstlines,skipoutputpos);
+    exit(0);
+  }
   int pospar=0;                                                                // get positional parameters
   int cargc=0;                                                                 // ...
   for(;optind<argc;++optind,++pospar){                                         // ...
