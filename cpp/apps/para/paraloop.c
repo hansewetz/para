@@ -183,7 +183,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
       }else{                                                   // a child timedout ... we'll terminate since no point continuing
         size_t ind=tmo_key(tmo);                               // get combuf for child process that timed out
         struct combuf*cb=combuftab_at(cbtab,ind);              // ...
-        app_message(FATAL,"child process timeout for pid: %d ... terminating",combuf_pid(cb));
+        app_message(FATAL,"child process timeout for pid: %d at input line: %d ... terminating",combuf_pid(cb),combuf_lineno(cb));
       }
     }
     // (1) read data into input queue (select triggered on input fd)
