@@ -25,6 +25,7 @@ struct txn_t{
   char txnlogfile_[FILENAME_MAX+1];                                 // name of transaction-log file
   char tmptxnlogfile_[FILENAME_MAX+1];                              // name of transaction-log file
   int fdout_;                                                       // fd for output file we are committing for
+  int fdtxnlogdir_;                                                 // fd for directory containing transaction log
   int cansyncoutfd_;                                                // true if we can sync fd
   int keeplog_;                                                     // true: do not remove txn log in destructor, false: remove log in destructor
 };

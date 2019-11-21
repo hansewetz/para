@@ -50,9 +50,9 @@ void sigchldHandler(int signo){
 void recoveryinfo(char const*txnlogfile,size_t*skipnfirstlines,size_t*skipoutputpos){
   struct txn_t*rtxn=txn_ctor(-1,0,txnlogfile);    // create a transaction for recovery, we won't use output fd in transaction
   struct txnlog_t*rtxnlog=txn_recover(rtxn);      // retrieve recovered txn log
-  if(rtxnlog!=0){
-    *skipnfirstlines=txnlog_nlines(rtxnlog);       // #of lines to skip
-    *skipoutputpos=txnlog_outfilepos(rtxnlog);     // file position in output file
+  if(rtxnlog!=0){                                 // if we have a transaction log then do ...
+    *skipnfirstlines=txnlog_nlines(rtxnlog);      // #of lines to skip
+    *skipoutputpos=txnlog_outfilepos(rtxnlog);    // file position in output file
     txn_setKeeplog(rtxn,1);                       // destroy temporary transaction but don't touch transaction log
     txn_dtor(rtxn);                               // ...
   }

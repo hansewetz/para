@@ -4,6 +4,7 @@
 #include "error.h"
 #include <errno.h>
 #include <string.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -52,11 +53,17 @@ struct txn_t*txn_ctor(int fdout,int cansyncoutfd_,char const*txnlogfile){
   ret->keeplog_=1;                                          // keep transaction log in destructor
   ret->fdout_=fdout;                                        // save fd to output file
   ret->cansyncoutfd_=cansyncoutfd_;                         // can we sync fd?
+  char tmplogfilename1[FILENAME_MAX-1];                     // get directory in which we write transaction log - it needs to be flushed after we flush transaction log
+  strcpy(tmplogfilename1,txnlogfile);                       // ... 
+  char txnlogdir[FILENAME_MAX-1];                           // name of directory containing transaction log
+  strcpy(txnlogdir,dirname(tmplogfilename1));               // ...
+  ret->fdtxnlogdir_=eopen(txnlogdir,O_DIRECTORY,0777);      // open directory containing transaction log - we'll need to flush it at commit time
   return ret;                                               // return transaction object
 }
 // destructor
 void txn_dtor(struct txn_t*txn){
   if(!txn->keeplog_)eunlink(txn->txnlogfile_);              // unlink txn log
+  eclose(txn->fdtxnlogdir_);                                // close directory containing transaction log
 }
 // set flag specifying if txn log should be removed in destructor
 void txn_setKeeplog(struct txn_t*txn,int keeplog){
@@ -64,8 +71,8 @@ void txn_setKeeplog(struct txn_t*txn,int keeplog){
 }
 // commit transaction
 void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
-  if(txn->cansyncoutfd_)efsync(txn->fdout_);                              // sync output file to disk
-  int fdtmplog=eopen(txn->txnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);     // open file for temporary transaction log
+  if(txn->cansyncoutfd_)efsync(txn->fdout_);                                 // sync output file to disk
+  int fdtmplog=eopen(txn->txnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);        // open file for temporary transaction log
 
   // write txn log
   int stat1;
@@ -77,6 +84,7 @@ void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
   // sync and commit
   efsync(fdtmplog);                                    // sync log to disk
   eclose(fdtmplog);                                    // close temp txn log
+  efsync(txn->fdtxnlogdir_);                           // sync directory cotaining transaction log
   int stat2=rename(txn->txnlogfile_,txn->txnlogfile_); // ATOMICALLY rename temporary transaction log to the real transaction log
   if(stat2<0)app_message(FATAL,"rename of temporary transcation log failed, errno: %d, errstr: %s",errno,strerror(errno));
 }
