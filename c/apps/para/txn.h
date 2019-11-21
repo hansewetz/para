@@ -25,10 +25,11 @@ struct txn_t{
   char txnlogfile_[FILENAME_MAX+1];                                 // name of transaction-log file
   char tmptxnlogfile_[FILENAME_MAX+1];                              // name of transaction-log file
   int fdout_;                                                       // fd for output file we are committing for
+  int cansyncoutfd_;                                                // true if we can sync fd
   int keeplog_;                                                     // true: do not remove txn log in destructor, false: remove log in destructor
 };
 // ctor, dtor
-struct txn_t*txn_ctor(int fdout,char const*txnlogfile);             // constructor (parameters: fd to file we are managing, name of transaction log)
+struct txn_t*txn_ctor(int fdout,int cansyncoutfd,char const*txnlogfile);// constructor (parameters: fd to file we are managing, name of transaction log)
 void txn_dtor(struct txn_t*txn);                                    // destructor
 
 // transaction related methods

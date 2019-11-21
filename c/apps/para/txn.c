@@ -42,7 +42,7 @@ void txnlog_dump(struct txnlog_t*txnlog,FILE*fp,int nl){
 */
 
 // constructor
-struct txn_t*txn_ctor(int fdout,char const*txnlogfile){
+struct txn_t*txn_ctor(int fdout,int cansyncoutfd_,char const*txnlogfile){
   struct txn_t*ret=emalloc(sizeof(struct txn_t));           // create txn object
   char*tmpext=".tmp";                                       // extension of temp transaction log
   size_t maxtxnlog=FILENAME_MAX-strlen(tmpext);             // max length of transaction log
@@ -51,6 +51,7 @@ struct txn_t*txn_ctor(int fdout,char const*txnlogfile){
   strcpy(ret->txnlogfile_,txnlogfile);                      // copy txn log filename to internal structue
   ret->keeplog_=1;                                          // keep transaction log in destructor
   ret->fdout_=fdout;                                        // save fd to output file
+  ret->cansyncoutfd_=cansyncoutfd_;                         // can we sync fd?
   return ret;                                               // return transaction object
 }
 // destructor
@@ -63,14 +64,14 @@ void txn_setKeeplog(struct txn_t*txn,int keeplog){
 }
 // commit transaction
 void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
-  efsync(txn->fdout_);                                                                   // flush output file to disk
-  int fdtmplog=eopen(txn->txnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);                 // open file for temporary transaction log
+  if(txn->cansyncoutfd_)efsync(txn->fdout_);                              // sync output file to disk
+  int fdtmplog=eopen(txn->txnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);     // open file for temporary transaction log
 
   // write txn log
   int stat1;
   stat1=write(fdtmplog,(char*)&txnlog->nlines_,sizeof(size_t));                // write #of bytes
   if(stat1<0)app_message(FATAL,"write to temporary transaction log failed (nlines), errno: %d, errstr: %s",errno,strerror(errno));
-  stat1=write(fdtmplog,(char*)&txnlog->outfilepos_,sizeof(size_t));             // write #of bytes
+  stat1=write(fdtmplog,(char*)&txnlog->outfilepos_,sizeof(size_t));            // write #of bytes
   if(stat1<0)app_message(FATAL,"write to temporary transaction log failed (outfilepos), errno: %d, errstr: %s",errno,strerror(errno));
 
   // sync and commit

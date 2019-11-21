@@ -48,7 +48,7 @@ void sigchldHandler(int signo){
 }
 // retrieve recovery info - if any
 void recoveryinfo(char const*txnlogfile,size_t*skipnfirstlines,size_t*skipoutputpos){
-  struct txn_t*rtxn=txn_ctor(-1,txnlogfile);      // create a transaction for recovery, we won't use output fd in transaction
+  struct txn_t*rtxn=txn_ctor(-1,0,txnlogfile);    // create a transaction for recovery, we won't use output fd in transaction
   struct txnlog_t*rtxnlog=txn_recover(rtxn);      // retrieve recovered txn log
   if(rtxnlog!=0){
     *skipnfirstlines=txnlog_nlines(rtxnlog);       // #of lines to skip
@@ -59,7 +59,7 @@ void recoveryinfo(char const*txnlogfile,size_t*skipnfirstlines,size_t*skipoutput
 }
 // select loop
 // (this is the main loop in the para program)
-void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t outqinc,size_t maxbuf,int startlineno,int fdin,int fdout,size_t txncommitnlines,char const*txnlogfile,int recoveryenabled,int outIsPositionable){
+void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_tmo_sec,size_t heart_sec,size_t maxoutq,size_t outqinc,size_t maxbuf,int startlineno,int fdin,int fdout,size_t txncommitnlines,char const*txnlogfile,int recoveryenabled,int outIsPositionable,int outIsSyncable){
   // set input and output to non-blocking
   setfdnonblock(fdin);
   setfdnonblock(fdout);
@@ -110,7 +110,7 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
   struct txnlog_t*lasttxnlog=txnlog_ctor(skipnfirstlines,skipoutputpos);
   struct txnlog_t*nexttxnlog=txnlog_ctor(skipnfirstlines,skipoutputpos);
   struct txn_t*txn=0;                                                 // transaction
-  if(txncommitnlines>0)txn=txn_ctor(fdout,txnlogfile);                // check if we need to configure transaction
+  if(txncommitnlines>0)txn=txn_ctor(fdout,outIsSyncable,txnlogfile);  // check if we need to configure transaction
 
   // setup signal handler for SIGCHLD
   struct sigaction sigact;                                            // setup signal handler for SIGCHLD

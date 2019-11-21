@@ -243,5 +243,6 @@ int main(int argc,char**argv){
     if(outputfile)fdout=eopen(outputfile,oflags,0777);                         // open output file for writing
   }
   // kickoff select() loop
-  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,incoutq,maxbuf,startlineno,fdin,fdout,txncommitnlines,txnlog,recoveryenabled,outputfile!=0);
+  paraloop(cmd,cargv,maxclients,clientsec,heartsec,maxoutq,incoutq,maxbuf,startlineno,fdin,fdout,txncommitnlines,txnlog,
+           recoveryenabled,outputfile!=0,outputfile!=0);
 }
