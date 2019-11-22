@@ -30,6 +30,7 @@ size_t buf_ind(struct buf_t*buf);                           // get value of next
 char*buf_buf(struct buf_t*buf);                             // get pointer to internal buffer
 char*buf_bufrd(struct buf_t*buf);                           // get pointer to where to read data
 char*buf_bufwr(struct buf_t*buf);                           // get pointer to where to start writing data from
+size_t buf_size(struct buf_t*buf);                          // get #of characters in buffer
 
 // buffer management when quering/adding/consuming characters to/from buffer
 char buf_lastchar(struct buf_t*buf);                        // return last character in buffer

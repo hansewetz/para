@@ -50,6 +50,9 @@ void outq_pop(struct outq_t*q){
 int outq_ready(struct outq_t*q){
   struct combuf*cb=outq_front(q);
   if(!cb)return 0;
+
+// NOTE!
+//fprintf(stderr,"==== combuf_lineno(cb): %d, q->nextlineno_: %d\n",combuf_lineno(cb), q->nextlineno_);
   return combuf_lineno(cb)==q->nextlineno_;
 }
 // size of q
