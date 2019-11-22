@@ -54,8 +54,8 @@ void recoveryinfo(char const*txnlogfile,size_t*skipnfirstlines,size_t*skipoutput
     *skipnfirstlines=txnlog_nlines(rtxnlog);      // #of lines to skip
     *skipoutputpos=txnlog_outfilepos(rtxnlog);    // file position in output file
     txn_setKeeplog(rtxn,1);                       // destroy temporary transaction but don't touch transaction log
-    txn_dtor(rtxn);                               // ...
   }
+  txn_dtor(rtxn);                                 // ...
 }
 // select loop
 // (this is the main loop in the para program)

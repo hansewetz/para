@@ -64,6 +64,7 @@ struct txn_t*txn_ctor(int fdout,int cansyncoutfd_,char const*txnlogfile){
 void txn_dtor(struct txn_t*txn){
   if(!txn->keeplog_)eunlink(txn->txnlogfile_);              // unlink txn log
   eclose(txn->fdtxnlogdir_);                                // close directory containing transaction log
+  free(txn);                                                // free memory fro transaction object
 }
 // set flag specifying if txn log should be removed in destructor
 void txn_setKeeplog(struct txn_t*txn,int keeplog){
