@@ -53,8 +53,9 @@ void recoveryinfo(char const*txnlogfile,size_t*skipnfirstlines,size_t*skipoutput
   if(rtxnlog!=0){                                 // if we have a transaction log then do ...
     *skipnfirstlines=txnlog_nlines(rtxnlog);      // #of lines to skip
     *skipoutputpos=txnlog_outfilepos(rtxnlog);    // file position in output file
-    txn_setKeeplog(rtxn,1);                       // destroy temporary transaction but don't touch transaction log
+    txnlog_dtor(rtxnlog);                         // destroy transaction log object
   }
+  txn_setKeeplog(rtxn,1);                         // destroy temporary transaction but don't touch transaction log
   txn_dtor(rtxn);                                 // ...
 }
 // select loop
@@ -191,9 +192,8 @@ void paraloop(char const*cfile,char*cargv[],size_t nsubprocesses,size_t client_t
       if(!inputeof)inputeof=readinq(qin,fd2fpmap[fdin],nsubprocesses,cbpool);
     }
     // (1.5) if we 'skipnfirstlines>0 remove 'skipnfirstlines' from input queue
-    if(skipnfirstlines>0){
-      skipnfirstlines-=inq_popnlines(qin,skipnfirstlines);
-    }
+    if(skipnfirstlines>0)skipnfirstlines-=inq_popnlines(qin,skipnfirstlines,cbpool);
+
     // (2) copy data from input queue into sub-process buffer
     for(size_t i=0;i<nsubprocesses;++i){
       struct combuf*cb=combuftab_at(cbtab,i);                    // get combuf for sub-process and check if we can write data to it

@@ -52,13 +52,14 @@ void inq_pop(struct inq_t*q){
   cb->next_=NULL;
   --q->size_;
 }
-// pop first N complete lines in queue
-int inq_popnlines(struct inq_t*q,int n){
+// pop first N complete lines in queue and put them back into a combufpool
+int inq_popnlines(struct inq_t*q,int n,struct combufpool*cbpool){
   int ret=0;
   while(n>0&&inq_size(q)>0){
     struct combuf*cb=inq_front(q);
     if(!combuf_rdcomplete(cb))break;
     inq_pop(q);
+    combufpool_putback(cbpool,cb);
     --n;
     ++ret;
   }

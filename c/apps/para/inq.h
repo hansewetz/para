@@ -6,6 +6,9 @@
 // --- input queue ---
 // (plain simple FIFO queue)
 
+// forward decl
+struct combufpool;
+
 // input queue struct
 struct inq_t{
   int nextlineno_;                                 // next line number to output (starting at 0)
@@ -21,7 +24,7 @@ struct combuf*inq_front(struct inq_t*q);           // get front of queue (might 
 struct combuf*inq_back(struct inq_t*q);            // get back of queue (might be NULL)
 void inq_push(struct inq_t*q,struct combuf*cb);    // push a combuf on input queue (line number will be automatically set in combuf)
 void inq_pop(struct inq_t*q);                      // pop front of queue (fatal if queue is empty)
-int inq_popnlines(struct inq_t*q,int n);           // pop first N complete lines in queue
+int inq_popnlines(struct inq_t*q,int n,struct combufpool*cbpool); // pop first N complete lines in queue
 int inq_nextlineno(struct inq_t*q);                // next line number
 size_t inq_size(struct inq_t*q);                   // #of elements in queue
 int inq_empty(struct inq_t*q);                     // 1 if queue is empty, else 0
