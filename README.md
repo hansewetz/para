@@ -180,10 +180,10 @@ This section will show you have to manage ```sed```, ```awk``` and other program
 
 ## ```sed``` as a sub-command
 
- ```sed``` can be run with the flag ```--unbufferd``` when executed as a sub-command to ```para```:
+ ```sed``` can be run with the flag ```--unbuffer``` when executed as a sub-command to ```para```:
 
 ```
-$ echo 'hello again' | para -- 5 sed --unbuffered 's/a/z/g'
+$ echo 'hello again' | para -- 5 sed --unbuffer 's/a/z/g'
 ```
 
 prints:
@@ -192,7 +192,7 @@ prints:
 hello zgzin
 ```
 
-Without the ```--unbuffered``` flag ```sed``` will simply hang while waiting in a ```read``` system call that tries to read a large chunk of data from ```stdin```.
+Without the ```--unbuffer``` flag ```sed``` will simply hang while waiting in a ```read``` system call that tries to read a large chunk of data from ```stdin```.
 
 ## a general solution
 
