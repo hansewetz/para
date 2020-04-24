@@ -73,7 +73,7 @@ void txn_setKeeplog(struct txn_t*txn,int keeplog){
 // commit transaction
 void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
   if(txn->cansyncoutfd_)efsync(txn->fdout_);                                 // sync output file to disk
-  int fdtmplog=eopen(txn->txnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);        // open file for temporary transaction log
+  int fdtmplog=eopen(txn->tmptxnlogfile_,O_WRONLY|O_CREAT|O_TRUNC,0777);     // open file for temporary transaction log
 
   // write txn log
   int stat1;
@@ -86,7 +86,7 @@ void txn_commit(struct txn_t*txn,struct txnlog_t*txnlog){
   efsync(fdtmplog);                                    // sync log to disk
   eclose(fdtmplog);                                    // close temp txn log
   efsync(txn->fdtxnlogdir_);                           // sync directory cotaining transaction log
-  int stat2=rename(txn->txnlogfile_,txn->txnlogfile_); // ATOMICALLY rename temporary transaction log to the real transaction log
+  int stat2=rename(txn->tmptxnlogfile_,txn->txnlogfile_); // ATOMICALLY rename temporary transaction log to the real transaction log
   if(stat2<0)app_message(FATAL,"rename of temporary transcation log failed, errno: %d, errstr: %s",errno,strerror(errno));
 }
 // recover transaction
